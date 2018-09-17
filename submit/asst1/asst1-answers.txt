@@ -1,0 +1,96 @@
+1. 
+It is boot() at ../../main/main.c:211.
+
+2.
+It is addiu sp, sp, -24 at ../../arch/sys161/main/start.S:54.
+
+3.
+(gdb) info breakpoints
+Num     Type           Disp Enb Address    What
+1       breakpoint     keep y   0x800139e4 in kmain at ../../main/main.c:211
+	breakpoint already hit 1 time
+2       breakpoint     keep y   0x800139e4 in kmain at ../../main/main.c:209
+3       breakpoint     keep y   0x800139e4 in kmain at ../../main/main.c:211
+4       breakpoint     keep y   0x800139ec in kmain at ../../main/main.c:213
+
+4.
+1) Use the stack frame to save the return address register.
+2) System/161 loader sets up a boot stack for the first processor at the top of the 
+physical memory and kernel loads at virtual address 0x80000200.
+3) Set up a stack frame on the real kernel stack.
+4) Copy the exception handler code onto the first page of memory.
+5) Flush the instruction, initialize TLB, and load NULL into the register.
+6) Set up the status register.
+7) Load the CPU number into the PTBASE field of the CONTEXT
+ register.
+8) Load the GP register.
+9) Now everything is set up then we can call kernel main.
+
+
+5. 
+It is jal kmain at ../../arch/sys161/main/start.S:215.
+
+6.
+(gdb) n
+109		ram_bootstrap();
+(gdb) n
+110		proc_bootstrap();
+(gdb) n
+111		thread_bootstrap();
+(gdb) n
+112		hardclock_bootstrap();
+(gdb) n
+113		vfs_bootstrap();
+(gdb) n
+114		kheap_nextgeneration();
+
+
+7.
+Breakpoint 2, thread_bootstrap () at ../../thread/thread.c:357
+357		cpuarray_init(&allcpus);
+(gdb) p bootcpu
+$1 = (struct cpu *) 0x80000
+
+
+8.
+Breakpoint 2, thread_bootstrap () at ../../thread/thread.c:357
+357		cpuarray_init(&allcpus);
+(gdb) s
+cpuarray_init (a=0x80035860 <allcpus>) at ../../thread/thread.c:67
+67	DEFARRAY(cpu, static __UNUSED inline);
+(gdb) s
+array_init (a=0x80035860 <allcpus>) at ../../lib/array.c:59
+59		a->num = a->max = 0;
+(gdb) s
+60		a->v = NULL;
+(gdb) s
+61	}
+(gdb) s
+thread_bootstrap () at ../../thread/thread.c:367
+367		bootcpu = cpu_create(0);
+(gdb) p bootcpu
+$1 = (struct cpu *) 0x80000
+
+
+9.
+Breakpoint 2, kmain (arguments=0x80035c20 "") at ../../main/main.c:211
+211		boot();
+(gdb) cpuarray allcpus
+0 cpus
+
+
+10.
+(gdb) cpuarray allcpus
+1 cpus
+cpu 0:
+$1 = {c_self = 0x8003af00, c_number = 0, c_hardware_number = 0, 
+  c_curthread = 0x8003bf80, c_zombies = {tl_head = {tln_prev = 0x0, 
+      tln_next = 0x8003af1c, tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af10, 
+      tln_next = 0x0, tln_self = 0x0}, tl_count = 0}, c_hardclocks = 1, 
+  c_spinlocks = 0, c_isidle = false, c_runqueue = {tl_head = {tln_prev = 0x0, 
+      tln_next = 0x8003af44, tln_self = 0x0}, tl_tail = {tln_prev = 0x8003af38, 
+      tln_next = 0x0, tln_self = 0x0}, tl_count = 0}, c_runqueue_lock = {
+    splk_lock = 0, splk_holder = 0x0}, c_ipi_pending = 0, c_shootdown = {{
+      ts_placeholder = 0} <repeats 16 times>}, c_numshootdown = 0, c_ipi_lock = {
+    splk_lock = 0, splk_holder = 0x0}}
+
