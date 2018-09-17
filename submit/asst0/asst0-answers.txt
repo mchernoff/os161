@@ -1,0 +1,109 @@
+Step 4.
+
+1.
+ssh-linux4:~/os161/root> sys161 kernel
+sys161: System/161 release 2.0.3, compiled Aug 10 2015 13:31:07
+
+OS/161 base system version 1.99.08
+Copyright (c) 2000, 2001-2005, 2008-2011, 2013, 2014
+   President and Fellows of Harvard College.  All rights reserved.
+
+Put-your-group-name-here's system version 0 (DUMBVM #1)
+
+292k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+
+cpu0: MIPS/161 (System/161 2.x) features 0x0
+
+2.
+ssh-linux4:~/os161/src> git log
+commit 87b416db8147a9c406caea0adf237c59140cb889
+Merge: 278ece9 ffea4fb
+Author: Zhiquan Wang <v3s1b@ssh-linux4.ece.ubc.ca>
+Date:   Sat Sep 8 23:47:47 2018 -0700
+
+    Merge branch 'master' of https://bitbucket.org/ARXII-13/os161
+
+commit 278ece934309d6504e8bbfe420b5a62f446f2ffd
+Author: Zhiquan Wang <v3s1b@ssh-linux4.ece.ubc.ca>
+Date:   Sat Sep 8 23:43:42 2018 -0700
+
+    Initial commit of os161 for CPEN331
+
+commit 889f8786146419f02e23a111ba36a777358ef443
+Author: Zhiquan Wang <v3s1b@ssh-linux4.ece.ubc.ca>
+Date:   Sat Sep 8 23:24:22 2018 -0700
+
+    Initial commit of os161 for CPEN331
+
+commit ffea4fb700e05e3988ef2f4d37571730ced688e9
+
+ssh-linux4:~/os161/src> git tag
+asst0-start
+
+Step 5. 
+
+Question 1:
+A trap is a type of exception in a user process and it usually will invoke system call in kernel.So when a trap occure, the exception handle code will be executed which will be in /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/arch/mips/locore/exception-mips1.S.The UTLB exception handler is at line 68 and General exception handler is at line 86. So the first line to execute will be line 69 and 87 depending on what kind of trap is occured. Since traps usually invoke system call, so control gets transferred to from system call function that can be find at /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/arch/mips/syscall/syscall.c.
+An interrupt is like a signal from system hardware.
+
+Question 2:
+As I stated above, trap invoke system call in kernel, and the instructions can be find in kernel folder at /ubc/ece/home/ugrads/v/v3s1b/os161/src/userland/lib/libc/arch/mips/syscalls-mips.S.
+
+Question 3:
+Those c functions in libc will be used in both kernel and user level libraryS.
+
+Question 4:
+Configure configures target machine and platform.It may need to rerun when user want to run on different hardware. 
+
+Question 5:
+Because Assembly language is a machine-dependent language. Therefore any function that is based on assembly language or using some special registers will be machine-dependen as well.
+It will make it a lot easier to seperate machine-dependent code and machine-independent code since the developer will only need to adjust machine-dependent code when they want to apply to a different machine. 
+
+Question 6:
+A trapframe takes 37 registers, and each registers_ts is 4 bytes so a trapframe takes 37 * 4 = 148 bytes according to /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/arch/mips/include/trapframe.h.
+
+
+Question 7:
+When the kernel configuration is changed,then we should rerun config script.
+
+Question 8:
+After we edit header file depend information.
+
+Question 9:
+After we edit kernel code.
+
+Question 10:
+/ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/main/menu.c contains all the commands.To add a command, let's add a function:
+
+static int cmd_helloworld(int nargs, char **args)
+{
+	(void)nargs;
+	(void)args;
+	kprintf("Hello World!");
+	return 0;
+}
+
+Question 11:
+The standard utilities from the machine will not work for OS/161 since we are sort of running OS/161 on hardware simulator but not real hardware. Therefore we have to include those header files.
+
+Question 12:
+The function return value will be stored in the v0 register.It will also be saved in a callee-savedd register s0 to be preserved across procedure calls.
+
+Question 13:
+First define the new system call in /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/include/kern/syscall.h and also for kernel calls in /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/include/syscall.h and in /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/include/kern/syscall.h.
+Then handle the system call in /ubc/ece/home/ugrads/v/v3s1b/os161/src/kern/arch/mips/syscall/syscall.c  syscall(struct trapframe *tf) function for the switch case.
+Re-run kern/conf/config script, run bmake depend, bmake and bmake install in kern/compile/DUMBVM.
+
