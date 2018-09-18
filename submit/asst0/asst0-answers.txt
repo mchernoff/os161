@@ -1,6 +1,7 @@
 
 
 
+
 Question 1:
 
 A trap is a type of exception in a user process and it usually will invoke system call in kernel.
