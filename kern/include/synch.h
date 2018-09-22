@@ -74,7 +74,10 @@ void V(struct semaphore *);
  */
 struct lock {
         char *lk_name;
-        // add what you need here
+		struct wchan *lk_wchan;					//Create a wait channel
+		struct spinlock lk_spinlock;				//Create a lock
+		struct thread *lk_owner;		//Create a pointer for a thread, which hold the clock
+
         // (don't forget to mark things volatile as needed)
 };
 
@@ -113,8 +116,8 @@ bool lock_do_i_hold(struct lock *);
 
 struct cv {
         char *cv_name;
-        // add what you need here
-        // (don't forget to mark things volatile as needed)
+		struct wchan *cv_wchan;		//a pointer tfor wait channel
+		struct spinlock cv_spinlock;
 };
 
 struct cv *cv_create(const char *name);

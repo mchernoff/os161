@@ -58,9 +58,9 @@ struct cpu;
 
 /* States a thread can be in. */
 typedef enum {
-	S_RUN,		/* running */
-	S_READY,	/* ready to run */
-	S_SLEEP,	/* sleeping */
+	S_RUN,		/* thread that is running */
+	S_READY,	/* thread that is not running but is ready to run */
+	S_SLEEP,	/* thread that is sleeping */
 	S_ZOMBIE,	/* zombie; exited but not yet deleted */
 } threadstate_t;
 

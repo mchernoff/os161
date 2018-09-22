@@ -1,0 +1,56 @@
+1. 
+thread_exit() can be found in thread.c at line 777.
+Detach the thread from process.
+Check make sure cur->t_proc is NULL.
+Check the stack guard band with thread_checkstack().
+Explicitly disable interrupts on this processor with splhigh().
+Mark the thread as zombie, which are threads that have exited but still
+ need to have thread_destroy called on them.
+
+thread_exit() can be found in thread.c at line 1026.
+Make sure thread is not an interrupt handler.
+Make sure thread holds only 1 spinlock.
+Switch to S_SLEEP mode and the thread is queued on the wait channel
+ WC, protected by the spinlock LK.
+Acquire the lock.
+
+2.
+thread_switch in thread.c at line 560.
+
+3.
+S_RUN	 	thread that is running 
+S_READY		thread that is not running but is ready to run 
+S_SLEEP		thread that is sleeping
+
+S_ZOMBIE	threads that have exited but still
+ need to have thread_destroy called on them
+
+4.
+It means that the current thread will not be interrupted until we turn the interrupts back on.
+We turn interrupts off by calling splhigh().
+It is to make sure a thread will not be interrupted until context switch complete successfully.
+
+5.
+Call wchan_wakeone() from thread.c at line 1045 to wake up a thread. And thread_make_runnable() function moved a sleeping thread back to ready mode.
+thread_make_runnable() also put the thread on the CPU run queue.
+
+6.
+thread_switch() from thread.c selecte and switche to the next thread that is going to run.
+Also schedule() from thread.c at line 820 theoretically should reshuffle
+ the current CPU's run queue by job priority.
+thread_consider_migration() from thread.c at line 846 will also moved to the threads to the less busy CPU.
+
+7.
+thread_switch() from thread.c selecte and switche to the next thread in the queue that is going to run.
+
+8.
+hardclock() from clock.c at line 93 will call schedule()(reshuffle
+ CPU run queue), thread_consider_migration()(balance CPU workload) 
+and thread_yield()(basically just call thread_switch()) HZ times a second by the timer
+.
+9.
+wchan_sleep() from thread.c at line 1026 will be used for P(wait) function.
+wchan_wakeone() from thread.c at line 1045 will be used for V(signal) function.
+
+10.
+
