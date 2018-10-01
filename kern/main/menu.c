@@ -116,10 +116,10 @@ common_prog(int nargs, char **args)
 	struct proc *proc;
 	int result;
 
-	if OPT_SYNCHPROBS
+#if OPT_SYNCHPROBS
 	kprintf("Warning: this probably won't work with a "
 		"synchronization-problems kernel.\n");
-	endif
+#endif
 
 	/* Create a process for the new program to run in. */
 	proc = proc_create_runprogram(args[0] /* name */);
@@ -509,9 +509,9 @@ static const char *mainmenu[] = {
 	"[?o] Operations menu                ",
 	"[?t] Tests menu                     ",
 
-	if OPT_SYNCHPROBS
+#if OPT_SYNCHPROBS
 	"[sp1] Air Balloon                   ",
-	endif
+#endif
 
 	"[kh] Kernel heap stats              ",
 	"[khgen] Next kernel heap generation ",
@@ -562,10 +562,10 @@ static struct {
 	{ "halt",	cmd_quit },
 
 
-	if OPT_SYNCHPROBS
+#if OPT_SYNCHPROBS
 	/* in-kernel synchronization problem(s) */
 	{ "sp1",	airballoon },
-	endif
+#endif
 
 	/* stats */
 	{ "kh",         cmd_kheapstats },

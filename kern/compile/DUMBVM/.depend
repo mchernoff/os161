@@ -88,7 +88,7 @@ rtclock.o: ../../dev/generic/rtclock.c ../../include/types.h \
  includelinks/machine/types.h ../../include/kern/errno.h \
  ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
  ../../include/clock.h ../../include/kern/time.h \
- ../../dev/generic/rtclock.h autoconf.h
+ ../../include/opt-synchprobs.h ../../dev/generic/rtclock.h autoconf.h
 beep_ltimer.o: ../../dev/lamebus/beep_ltimer.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
@@ -189,9 +189,9 @@ ltimer.o: ../../dev/lamebus/ltimer.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
  opt-noasserts.h ../../include/spl.h ../../include/clock.h \
- ../../include/kern/time.h includelinks/platform/bus.h \
- includelinks/machine/vm.h ../../dev/lamebus/lamebus.h \
- ../../include/cpu.h ../../include/spinlock.h \
+ ../../include/kern/time.h ../../include/opt-synchprobs.h \
+ includelinks/platform/bus.h includelinks/machine/vm.h \
+ ../../dev/lamebus/lamebus.h ../../include/cpu.h ../../include/spinlock.h \
  includelinks/machine/spinlock.h ../../include/threadlist.h \
  ../../dev/lamebus/ltimer.h autoconf.h
 ltrace_att.o: ../../dev/lamebus/ltrace_att.c ../../include/types.h \
@@ -343,7 +343,8 @@ misc.o: ../../lib/misc.c ../../include/types.h ../../include/kern/types.h \
  opt-noasserts.h
 time.o: ../../lib/time.c ../../include/types.h ../../include/kern/types.h \
  includelinks/kern/machine/types.h includelinks/machine/types.h \
- ../../include/clock.h ../../include/kern/time.h
+ ../../include/clock.h ../../include/kern/time.h \
+ ../../include/opt-synchprobs.h
 uio.o: ../../lib/uio.c ../../include/types.h ../../include/kern/types.h \
  includelinks/kern/machine/types.h includelinks/machine/types.h \
  ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
@@ -359,7 +360,8 @@ main.o: ../../main/main.c ../../include/types.h \
  ../../include/kern/reboot.h ../../include/kern/unistd.h \
  ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
  ../../include/spl.h ../../include/clock.h ../../include/kern/time.h \
- ../../include/thread.h ../../include/array.h ../../include/spinlock.h \
+ ../../include/opt-synchprobs.h ../../include/thread.h \
+ ../../include/array.h ../../include/spinlock.h \
  includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/proc.h \
@@ -375,13 +377,14 @@ menu.o: ../../main/menu.c ../../include/types.h \
  ../../include/limits.h ../../include/kern/limits.h ../../include/lib.h \
  ../../include/cdefs.h opt-noasserts.h ../../include/uio.h \
  ../../include/kern/iovec.h ../../include/clock.h \
- ../../include/kern/time.h ../../include/thread.h ../../include/array.h \
- ../../include/spinlock.h includelinks/machine/spinlock.h \
- ../../include/threadlist.h includelinks/machine/thread.h \
- ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
- ../../include/proc.h ../../include/vfs.h ../../include/sfs.h \
- ../../include/fs.h ../../include/vnode.h ../../include/kern/sfs.h \
- ../../include/syscall.h ../../include/test.h opt-sfs.h opt-net.h
+ ../../include/kern/time.h ../../include/opt-synchprobs.h \
+ ../../include/thread.h ../../include/array.h ../../include/spinlock.h \
+ includelinks/machine/spinlock.h ../../include/threadlist.h \
+ includelinks/machine/thread.h ../../include/setjmp.h \
+ includelinks/kern/machine/setjmp.h ../../include/proc.h \
+ ../../include/vfs.h ../../include/sfs.h ../../include/fs.h \
+ ../../include/vnode.h ../../include/kern/sfs.h ../../include/syscall.h \
+ ../../include/test.h ../../include/opt-synchprobs.h opt-sfs.h opt-net.h
 proc.o: ../../proc/proc.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/spl.h ../../include/cdefs.h \
@@ -420,8 +423,8 @@ runprogram.o: ../../syscall/runprogram.c ../../include/types.h \
 time_syscalls.o: ../../syscall/time_syscalls.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/clock.h \
- ../../include/kern/time.h ../../include/copyinout.h \
- ../../include/syscall.h ../../include/cdefs.h
+ ../../include/kern/time.h ../../include/opt-synchprobs.h \
+ ../../include/copyinout.h ../../include/syscall.h ../../include/cdefs.h
 arraytest.o: ../../test/arraytest.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
@@ -455,7 +458,8 @@ synchtest.o: ../../test/synchtest.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
  opt-noasserts.h ../../include/clock.h ../../include/kern/time.h \
- ../../include/thread.h ../../include/array.h ../../include/spinlock.h \
+ ../../include/opt-synchprobs.h ../../include/thread.h \
+ ../../include/array.h ../../include/spinlock.h \
  includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/synch.h \
@@ -483,14 +487,16 @@ tt3.o: ../../test/tt3.c ../../include/types.h ../../include/kern/types.h \
  ../../include/spinlock.h includelinks/machine/spinlock.h \
  ../../include/threadlist.h includelinks/machine/thread.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
- ../../include/synch.h ../../include/test.h
+ ../../include/synch.h ../../include/test.h \
+ ../../include/opt-synchprobs.h
 clock.o: ../../thread/clock.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
  opt-noasserts.h ../../include/cpu.h ../../include/spinlock.h \
  includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/vm.h ../../include/wchan.h ../../include/clock.h \
- ../../include/kern/time.h ../../include/thread.h ../../include/array.h \
+ ../../include/kern/time.h ../../include/opt-synchprobs.h \
+ ../../include/thread.h ../../include/array.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/current.h \
  includelinks/machine/current.h
@@ -534,7 +540,8 @@ thread.o: ../../thread/thread.c ../../include/types.h \
  ../../include/threadprivate.h ../../include/proc.h \
  ../../include/current.h includelinks/machine/current.h \
  ../../include/synch.h ../../include/addrspace.h ../../include/vm.h \
- opt-dumbvm.h ../../include/mainbus.h ../../include/vnode.h
+ opt-dumbvm.h ../../include/mainbus.h ../../include/vnode.h \
+ ../../include/opt-synchprobs.h
 threadlist.o: ../../thread/threadlist.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/lib.h ../../include/cdefs.h \
@@ -820,7 +827,8 @@ lamebus_machdep.o: ../../arch/sys161/dev/lamebus_machdep.c \
  includelinks/mips/trapframe.h ../../include/cpu.h \
  ../../include/spinlock.h includelinks/machine/spinlock.h \
  ../../include/threadlist.h includelinks/machine/vm.h ../../include/spl.h \
- ../../include/clock.h ../../include/kern/time.h ../../include/thread.h \
+ ../../include/clock.h ../../include/kern/time.h \
+ ../../include/opt-synchprobs.h ../../include/thread.h \
  ../../include/array.h includelinks/machine/thread.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
  ../../include/current.h includelinks/machine/current.h \

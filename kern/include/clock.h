@@ -51,7 +51,7 @@
 #else
 /* More realistic value */
 #define HZ  100
-endif
+#endif
 
 void hardclock_bootstrap(void);
 void hardclock(void);
