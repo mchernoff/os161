@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include "../../../syscall/fscall.c"
 
 
 /*
@@ -109,8 +110,14 @@ syscall(struct trapframe *tf)
 				 (userptr_t)tf->tf_a1);
 		break;
 
-	    /* Add stuff here */
-
+		case SYS_open:
+		err = sys_open((char *)tf->tf_a0,(int)tf->tf_a1);
+		break;
+		
+		case SYS_write:
+		err = sys_write((int)tf->tf_a0,(void*)tf->tf_a1,(size_t)tf->tf_a2);
+		break;
+		
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
