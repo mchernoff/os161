@@ -1,0 +1,109 @@
+1. What are the ELF magic numbers?
+
+Extensible Linking Format magic numbers are the first 4 bytes at the begining of ELF file header.
+Those bytes can be find at elf.h at line 69 to 72 and those are used to mark the files as specific file format.
+
+
+2. What is the difference between UIO_USERISPACE and UIO_USERSPACE? When should one use UIO_SYSSPACE instead?
+
+Those can be find at .
+UIO_USERISPACE is used when memory segment on disk is executable and UIO_USERSPACE if not.(~/src/kern/syscall/loadelf.c line 102). 
+UIO_SYSSPACE can only be used when the data are read from / write to kernel space(uio.h line 67). 
+
+
+3. Why can the struct uio that is used to read in a segment be allocated on the stack in load_segment() (i.e., where does the memory read actually go)?
+
+In uio.h(line 74) the struct uio used struct iovec, which used in the readv/writev scatter/gather I/O calls,
+ and within the kernel for keeping track of blocks of data for I/O.
+The iov_base will take the virtual address in vaddr and iov_len will store the length of data from memory.
+
+
+4. In runprogram(), why is it important to call vfs_close() before going to usermode?
+
+In ~/src/kern/syscall/runprogram.c line 63 runprogram() call vfs_open() to open a file and it will create a vnode.
+So before runprogram wrap to user mode, it has to call vfs_close() to deallocate memory from vnode(vnode.c) to prevent future memory leak.
+
+
+5. What function forces the processor to switch into usermode? Is this function machine dependent?
+
+mips_usermode(line 368) and enter_new_process(line 423) from trap.c forces the processor to switch into usermode.
+It should be machine dependent since passing argc/argv
+ * may use additional stack space on some other platforms. 
+
+
+6. In what file are copyin and copyout defined? memmove? Why can't copyin and copyout be implemented as simply as memmove?
+
+copyin and copyout are defined in ~/src/kern/vm/copyinout.c at line 153 and line 189.
+memmove is defined in ~/src/common/libc/string/copyinout.c at line 49.
+copyin and copyout copy block of memory between user-level address and kernel address.
+memmove just simply copy and paste block of memory from a source to destination.
+
+7. What (briefly) is the purpose of userptr_t?
+
+It's used for a address in userspace.
+
+
+8. What is the numerical value of the exception code for a MIPS system call?
+
+#define EX_SYS    8 	at ~/src/kern/arch/mips/include/trapframe.h line 91
+
+
+9. How many bytes is an instruction in MIPS? (Answer this by reading syscall() carefully, not by looking somewhere else.)
+
+4 bytes since at ~/src/kern/arch/mips/syscall/syscall.c line 141 the program counter advances 4.
+
+
+10. Why do you "probably want to change" the implementation of kill_curthread()? 
+
+Probably I dont want the kernel to panic while the user-level code hits a fatal fault(~/src/kern/arch/mips/locore/trap.c line 117).
+
+
+11. What would be required to implement a system call that took more than 4 arguments?	
+
+~/src/kern/arch/mips/locore/trap.c line 74
+Further arguments must be fetched from the user-level
+ stack, starting at sp+16 to skip over the slots for the
+ registerized values, with copyin().
+
+
+12. What is the purpose of the SYSCALL macro?
+
+SYSCALL macro definded syscall() as a system call dispatcher that pass system call number to v0 regiter.
+Then it will jump to the shared code on a success return.
+
+
+13. What is the MIPS instruction that actually triggers a system call? (Answer this by reading the source in this directory, not looking somewhere else.)
+
+syscall 
+Line 84 at ~/src/userland/lib/libc/arch/mips/syscalls-mips.S
+
+
+14. After reading syscalls-mips.S and syscall.c, you should be prepared to answer the following question: 
+OS/161 supports 64-bit values; lseek() takes and returns a 64-bit offset value. 
+Thus, lseek() takes a 32-bit file handle (arg0), a 64-bit offset (arg1), a 32-bit whence (arg2), and needs to return a 64-bit offset value. 
+In void syscall(struct trapframe *tf) where will you find each of the three arguments (in which registers) and how will you return the 64-bit offset?
+
+Base on Line 46 at ~/src/userland/lib/libc/arch/mips/syscalls-mips.S, if the first argument is 32-bit and the second is 64-bit, a1 is
+ unused.
+So arg0 will be stored in a0 and a1(unused), arg1 will be stored in a2 and a3.
+arg2 will be fetched from the user-level
+ stack, starting at sp+16 to skip over the slots for the
+ registerized values, with copyin().
+The return 64-bit offset will be passed back in the v0
+ and v1 register since it's 64-bit.
+
+
+15. As you were reading the code in runprogram.c and loadelf.c, you probably noticed how the kernel manipulates the files. 
+Which kernel function is called to open a file? Which macro is called to read the file? What about to write a file? 
+Which data structure is used in the kernel to represent an open file? 
+
+vfs_open is called to open a file.   	~/src/kern/syscall/runprogram.c 	line 64
+VOP_READ is called to read a file.   	~/src/kern/include/vnode.h		line 83
+VOP_WRITE is called to write a file.	~/src/kern/include/vnode.h		line 101	
+Struct vnode is used in the kernel to represent an open file.	~/src/kern/include/vnode.h 	line 39
+
+
+16. What is the purpose of VOP_INCREF and VOP_DECREF?
+
+VOP_INCREF increments vnode reference count.		~/src/kern/include/vnode.h	line 263
+VOP_DECREF decrements vnode reference count.		~/src/kern/include/vnode.h	line 264
