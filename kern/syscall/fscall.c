@@ -22,6 +22,7 @@
 #include <kern/fcntl.h>
 #include <vnode.h>
 #include <file.h>
+#include <copyinout.h>
 
 #define UNUSED(x) (void)(x)
 
@@ -36,6 +37,8 @@
 */
 int	sys_open(const char *filename, int flags, mode_t mode, int *retval)
 {
+	UNUSED(retval);
+
 	//check if filename is valid input
 	if (filename == NULL) {
 		return EFAULT;
@@ -46,15 +49,34 @@ int	sys_open(const char *filename, int flags, mode_t mode, int *retval)
 		return EINVAL;
 	}
 
-	//I may have to implement a lock for sys_open let me think about how to do this
+	//find a space in file table, noticed that 0, 1, 2 are reserved in the file 
+	//descriptor table
+	int fd;
+	for (fd = 3; fd < OPEN_MAX; fd++)
+	{
+		if (curproc->p_fd[fd] == NULL)
+		{
+			break;
+		}
+	}
 
+	//the system file table is full
+	if (fd == OPEN_MAX)
+	{
+		return ENFILE;
+	}
 
+	curproc->p_fd[fd]->file_lock = lock_create(filename);
+	lock_acquire(curproc->p_fd[fd]->file_lock);
+	//allocate memory block for new entry in file table
+	curproc->p_fd[fd] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor*));
 
-	//Allocates a memory block in kernel for filename and copy that from user-level 
-	//address to kernel address dests
+	//allocates a memory block in kernel for filename and copy that from user-level 
+	//address to kernel space
 	char* kfname = kmalloc(NAME_MAX * sizeof(char*));
 	size_t fnamelength;
-	int result = copyinstr((const_userptr_t)filename, kfname, NAME_MAX, &fnamelength);
+	int result;
+	result = copyinstr((const_userptr_t)filename, kfname, NAME_MAX, &fnamelength);
 
 	if (result == 1) {
 		kfree(kfname);
@@ -62,14 +84,20 @@ int	sys_open(const char *filename, int flags, mode_t mode, int *retval)
 	}
 
 	//virtual file system open or create a file
-	struct vnode *fvnode = NULL;
-	result = vfs_open((char*)filename, flags, mode, &fvnode);
+	struct vnode *filevnode = NULL;
+	result = vfs_open((char*)filename, flags, mode, &filevnode);
+	curproc->p_fd[fd]->fvnode = filevnode;
 
 	if (result == 1) {
 		kfree(kfname);
 		return result;
 	}
 
+	//set up contents for file descriptor 
+	curproc->p_fd[fd]->flags = flags;
+	curproc->p_fd[fd]->offset = 0;
+	*retval = fd;
+	lock_release(curproc->p_fd[fd]->file_lock);
 	kfree(kfname);
 
 	return 0;
@@ -88,8 +116,16 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 		return EBADF;
 	}
 
+	//buf is invalid
 	if (buf == NULL) {
 		return EFAULT;
+	}
+
+	//if flag is incorrect
+	if (curproc->p_fd[fd]->flags != O_WRONLY || curproc->p_fd[fd]->flags != O_RDWR)
+	{
+		*retval = -1;
+		return EINVAL;
 	}
 
 	lock_acquire(curproc->p_fd[fd]->file_lock);		//acquire the lock to the file
