@@ -38,6 +38,7 @@
 
 #include <spinlock.h>
 #include <thread.h> /* required for struct threadarray */
+#include <limits.h>
 
 struct addrspace;
 struct vnode;
@@ -57,6 +58,10 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+
+	//define a file table with OPEN_MAX entries 
+	//each entries should have a lock as well
+	struct file_descriptor *p_fd[OPEN_MAX];		
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
