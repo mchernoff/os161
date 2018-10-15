@@ -122,11 +122,11 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 	}
 
 	//if flag is incorrect
-	if (curproc->p_fd[fd]->flags != O_WRONLY || curproc->p_fd[fd]->flags != O_RDWR)
-	{
-		*retval = -1;
-		return EINVAL;
-	}
+	//if (curproc->p_fd[fd]->flags != O_WRONLY || curproc->p_fd[fd]->flags != O_RDWR)
+	//{
+	//	*retval = -1;
+	//	return EINVAL;
+	//}
 
 	lock_acquire(curproc->p_fd[fd]->file_lock);		//acquire the lock to the file
 
