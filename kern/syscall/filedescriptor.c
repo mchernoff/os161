@@ -24,6 +24,7 @@
 #include <file.h>
 #include <copyinout.h>
 #include <stat.h>
+#include <synch.h>
 
 //initialize the file descriptor 0, 1, 2
 int file_descriptor_init(struct proc *process)
@@ -40,20 +41,20 @@ int file_descriptor_init(struct proc *process)
 
 	//if fail to open or create a file, then file_descriptor_init fail, 
 	//return 0 and free memory
-	if (vfs_open(stdin, O_RDONLY, 0, &vn_stdin) == 0)
+	if (vfs_open(stdin, O_RDONLY, 0, &vn_stdin) != 0 || vn_stdin == NULL)
 	{
 		kfree(stdin);
 		return 0;
 	}
 
-	if (vfs_open(stdin, O_WRONLY, 0, &vn_stdout) == 0)
+	if (vfs_open(stdout, O_WRONLY, 0, &vn_stdout) != 0 || vn_stdout == NULL)
 	{
 		kfree(stdin);
 		kfree(stdout);
 		return 0;
 	}
 
-	if (vfs_open(stderr, O_RDWR, 0, &vn_stderr) == 0)
+	if (vfs_open(stderr, O_RDWR, 0, &vn_stderr) != 0 || vn_stderr == NULL)
 	{
 		kfree(stdin);
 		kfree(stdout);
@@ -74,6 +75,7 @@ int file_descriptor_init(struct proc *process)
 	process->p_fd[0]->mode = O_RDONLY;
 	process->p_fd[0]->flags = O_RDONLY;					
 	process->p_fd[0]->offset = 0;
+	process->p_fd[0]->file_lock = lock_create(stdin);
 
 	//initialize stdout
 	process->p_fd[1] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor));
@@ -82,14 +84,16 @@ int file_descriptor_init(struct proc *process)
 	process->p_fd[1]->mode = O_WRONLY;
 	process->p_fd[1]->flags = O_WRONLY;
 	process->p_fd[1]->offset = 0;
+	process->p_fd[1]->file_lock = lock_create(stdout);
 
-	//initialize stdout
+	//initialize stderr
 	process->p_fd[2] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor));
 	strcpy(process->p_fd[2]->fname, stderr);
 	process->p_fd[2]->fvnode = vn_stderr;
 	process->p_fd[2]->mode = O_RDWR;
 	process->p_fd[2]->flags = O_RDWR;
 	process->p_fd[2]->offset = 0;
+	process->p_fd[2]->file_lock = lock_create(stderr);
 
 	return 1;
 }

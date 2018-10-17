@@ -31,15 +31,6 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-int	open(const char *filename, int flags, mode_t mode);
-int write(int fd, const void *buf, size_t nbytes);
-off_t read(int fd, void *buf, size_t nbytes);
-int close(int fd);
-off_t lseek(int fd, off_t pos, int whence);
-int chdir(const char *pathname);
-int dup2(int oldfd, int newfd);
-int __getcwd(char *buf, size_t buflen);
-
 /*
 	Opens the file, device, or other kernel object named by the pathname filename. 
 	The flags argument specifies how to open the file and should consist of one of
@@ -49,7 +40,7 @@ int __getcwd(char *buf, size_t buflen);
 		O_RDWR		Open for reading and writing.
 
 */
-int	open(const char *filename, int flags, mode_t mode)
+int	sys_open(const char *filename, int flags, mode_t mode, int *retval)
 {
 
 	//check if filename is valid input
@@ -57,8 +48,12 @@ int	open(const char *filename, int flags, mode_t mode)
 		return EFAULT;
 	}
 
+	//separate the permission flag from optional flags
+	//int extra_flags = flags&252;
+	int wr_flags = flags & 3;
+	
 	//check if flags is valid input
-	if (flags != O_RDONLY || flags != O_WRONLY || flags != O_RDWR) {
+	if (wr_flags != O_RDONLY && wr_flags != O_WRONLY && wr_flags != O_RDWR) {
 		return EINVAL;
 	}
 
@@ -79,40 +74,47 @@ int	open(const char *filename, int flags, mode_t mode)
 		return ENFILE;
 	}
 
-	curproc->p_fd[fd]->file_lock = lock_create(filename);
-	lock_acquire(curproc->p_fd[fd]->file_lock);
-	//allocate memory block for new entry in file table
-	curproc->p_fd[fd] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor*));
-
+	
 	//allocates a memory block in kernel for filename and copy that from user-level 
 	//address to kernel space
-	char* kfname = kmalloc(NAME_MAX * sizeof(char*));
-	size_t fnamelength;
 	int result;
+	/*char* kfname = kmalloc(NAME_MAX * sizeof(char));
+	size_t fnamelength;
 	result = copyinstr((const_userptr_t)filename, kfname, NAME_MAX, &fnamelength);
 
 	if (result == 1) {
+		lock_release(curproc->p_fd[fd]->file_lock);
+		lock_destroy(curproc->p_fd[fd]->file_lock);
+		kfree(curproc->p_fd[fd]);
 		kfree(kfname);
 		return result;
-	}
-
+	}*/
+	
 	//virtual file system open or create a file
 	struct vnode *filevnode = NULL;
 	result = vfs_open((char*)filename, flags, mode, &filevnode);
-	curproc->p_fd[fd]->fvnode = filevnode;
-
-	if (result == 1) {
-		kfree(kfname);
-		return result;
+	
+	if (result != 0 || filevnode == NULL) {
+		//kfree(kfname);
+		kfree(filevnode);
+		return EMFILE;
 	}
-
+	
+	//allocate memory block for new entry in file table
+	curproc->p_fd[fd] = kmalloc(sizeof(struct file_descriptor));
+	curproc->p_fd[fd]->file_lock = lock_create(filename);
+	lock_acquire(curproc->p_fd[fd]->file_lock);
+	
 	//set up contents for file descriptor 
+	curproc->p_fd[fd]->fvnode = filevnode;
 	curproc->p_fd[fd]->flags = flags;
 	curproc->p_fd[fd]->offset = 0;
+	strcpy(curproc->p_fd[fd]->fname, filename);	
 	lock_release(curproc->p_fd[fd]->file_lock);
-	kfree(kfname);
-
-	return fd;
+	//kfree(kfname);
+	
+	*retval = fd;
+	return 0;
 }
 
 
@@ -121,12 +123,10 @@ int	open(const char *filename, int flags, mode_t mode)
 	file specified by the current seek position of the file, taking the data from the space 
 	pointed to by buf. The file must be open for writing.
 */
-int write(int fd, const void *buf, size_t nbytes)
+int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 {
-	int retval;
 	//fd is not a valid file descriptor
 	if (fd < 0 || curproc->p_fd[fd] == NULL) {
-		kprintf("failed %d\n", fd);
 		return EBADF;
 	}
 
@@ -136,12 +136,11 @@ int write(int fd, const void *buf, size_t nbytes)
 	}
 
 	//if flag is incorrect
-	if (curproc->p_fd[fd]->flags != O_WRONLY || curproc->p_fd[fd]->flags != O_RDWR)
+	if (curproc->p_fd[fd]->flags != O_WRONLY && curproc->p_fd[fd]->flags != O_RDWR)
 	{
 		return EINVAL;
 	}
 
-	kprintf("file %d\n", curproc->p_fd[fd]->flags);
 	lock_acquire(curproc->p_fd[fd]->file_lock);		//acquire the lock to the file
 
 	struct uio uio;				//used to manage blocks of data moved around by the kernel
@@ -151,8 +150,7 @@ int write(int fd, const void *buf, size_t nbytes)
 	uio_kinit(&iovec, &uio, (void*) buf, nbytes, curproc->p_fd[fd]->offset, UIO_WRITE);
 	iovec.iov_ubase = (userptr_t)buf;			//user-supplied pointer
 	iovec.iov_len = nbytes;						//length of data
-	kprintf("shit\n");
-
+	
 	int result = VOP_WRITE(curproc->p_fd[fd]->fvnode, &uio);		//write data from uio to file at offset
 	if (result == 1) {
 		kfree(buffer);
@@ -160,17 +158,16 @@ int write(int fd, const void *buf, size_t nbytes)
 		return result;
 	}
 
-	kprintf("result %d\n", result);
 	curproc->p_fd[fd]->offset = uio.uio_offset;
 	kfree(buffer);
-	retval = nbytes - uio.uio_resid;
+	*retval = nbytes - uio.uio_resid;
 	lock_release(curproc->p_fd[fd]->file_lock);
 
-	return retval;
+	return 0;
 }
 
-off_t
-read(int fd, void *buf, size_t nbytes)
+int
+sys_read(int fd, void *buf, size_t nbytes)
 {
 	UNUSED(fd);
 	UNUSED(buf);
@@ -179,14 +176,29 @@ read(int fd, void *buf, size_t nbytes)
 }
 
 int
-close(int fd)
+sys_close(int fd)
 {
-	UNUSED(fd);
+	
+	//check if fd is valid input
+	if (curproc->p_fd[fd] == NULL) {
+		return EBADF;
+	}
+		
+		
+	lock_acquire(curproc->p_fd[fd]->file_lock);
+	vfs_close(curproc->p_fd[fd]->fvnode);
+	
+	//free all memory
+	lock_release(curproc->p_fd[fd]->file_lock);
+	lock_destroy(curproc->p_fd[fd]->file_lock);
+	kfree(curproc->p_fd[fd]);
+	curproc->p_fd[fd] = NULL;
+	
 	return 0;
 }
 
-off_t
-lseek(int fd, off_t pos, int whence)
+int
+sys_lseek(int fd, off_t pos, int whence)
 {
 	off_t new_pos;
 	struct stat statbuf;
@@ -236,14 +248,14 @@ lseek(int fd, off_t pos, int whence)
 }
 
 int
-chdir(const char *pathname)
+sys_chdir(const char *pathname)
 {
 	UNUSED(pathname);
 	return 0;
 }
 
 int
-dup2(int oldfd, int newfd)
+sys_dup2(int oldfd, int newfd)
 {
 	UNUSED(oldfd);
 	UNUSED(newfd);
@@ -251,7 +263,7 @@ dup2(int oldfd, int newfd)
 }
 
 int
-__getcwd(char *buf, size_t buflen)
+sys_getcwd(char *buf, size_t buflen)
 {
 	UNUSED(buf);
 	UNUSED(buflen);
