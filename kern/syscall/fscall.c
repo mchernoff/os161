@@ -24,12 +24,9 @@
 #include <file.h>
 #include <copyinout.h>
 #include <stat.h>
+#include <kern/seek.h>
 
 #define UNUSED(x) (void)(x)
-
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#define SEEK_END 2
 
 /*
 	Opens the file, device, or other kernel object named by the pathname filename. 
@@ -134,9 +131,13 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 	if (buf == NULL) {
 		return EFAULT;
 	}
-
+	
+	//separate the permission flag from optional flags
+	//int extra_flags = flags&252;
+	int wr_flags = (curproc->p_fd[fd]->flags) & 3;
+	
 	//if flag is incorrect
-	if (curproc->p_fd[fd]->flags != O_WRONLY && curproc->p_fd[fd]->flags != O_RDWR)
+	if (wr_flags != O_WRONLY && wr_flags != O_RDWR)
 	{
 		return EINVAL;
 	}
@@ -152,7 +153,7 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 	iovec.iov_len = nbytes;						//length of data
 	
 	int result = VOP_WRITE(curproc->p_fd[fd]->fvnode, &uio);		//write data from uio to file at offset
-	if (result == 1) {
+	if (result != 0) {
 		kfree(buffer);
 		lock_release(curproc->p_fd[fd]->file_lock);
 		return result;
@@ -167,11 +168,49 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 }
 
 int
-sys_read(int fd, void *buf, size_t nbytes)
+sys_read(int fd, void *buf, size_t buflen, int* retval)
 {
-	UNUSED(fd);
-	UNUSED(buf);
-	UNUSED(nbytes);
+	//fd is not a valid file descriptor
+	if (fd < 0 || curproc->p_fd[fd] == NULL) {
+		return EBADF;
+	}
+
+	//buf is invalid
+	if (buf == NULL) {
+		return EFAULT;
+	}
+	
+	//separate the permission flag from optional flags
+	//int extra_flags = flags&252;
+	int wr_flags = (curproc->p_fd[fd]->flags) & 3;
+	
+	//if flag is incorrect
+	if (wr_flags != O_RDONLY && wr_flags != O_RDWR)
+	{
+		return EINVAL;
+	}
+
+	lock_acquire(curproc->p_fd[fd]->file_lock);		//acquire the lock to the file
+
+	struct uio uio;				//used to manage blocks of data moved around by the kernel
+	struct iovec iovec;			//read I/O calls	
+
+	char *buffer = (char*)kmalloc(buflen);
+	uio_kinit(&iovec, &uio, (void*) buf, buflen, curproc->p_fd[fd]->offset, UIO_READ);
+	iovec.iov_ubase = (userptr_t)buf;			//user-supplied pointer
+	iovec.iov_len = buflen;						//length of data
+	
+	int result = VOP_READ(curproc->p_fd[fd]->fvnode, &uio);		//read data from uio from file at offset
+	if (result != 0) {
+		kfree(buffer);
+		lock_release(curproc->p_fd[fd]->file_lock);
+		return EIO;
+	}
+
+	kfree(buffer);
+	*retval = buflen - uio.uio_resid;
+	lock_release(curproc->p_fd[fd]->file_lock);
+
 	return 0;
 }
 
@@ -183,7 +222,6 @@ sys_close(int fd)
 	if (curproc->p_fd[fd] == NULL) {
 		return EBADF;
 	}
-		
 		
 	lock_acquire(curproc->p_fd[fd]->file_lock);
 	vfs_close(curproc->p_fd[fd]->fvnode);
@@ -198,7 +236,7 @@ sys_close(int fd)
 }
 
 int
-sys_lseek(int fd, off_t pos, int whence)
+sys_lseek(int fd, off_t pos, int whence, off_t* retval)
 {
 	off_t new_pos;
 	struct stat statbuf;
@@ -244,7 +282,8 @@ sys_lseek(int fd, off_t pos, int whence)
 	curproc->p_fd[fd]->offset = new_pos;
 	lock_release(curproc->p_fd[fd]->file_lock);
 	
-	return new_pos;
+	*retval = new_pos;
+	return 0;
 }
 
 int
