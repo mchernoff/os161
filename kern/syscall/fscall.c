@@ -217,21 +217,25 @@ sys_read(int fd, void *buf, size_t buflen, int* retval)
 int
 sys_close(int fd)
 {
-	
+	kprintf("sys_close mark1        \n ");
 	//check if fd is valid input
 	if (curproc->p_fd[fd] == NULL) {
 		return EBADF;
 	}
-		
+	kprintf("sys_close mark1.5        \n ");
 	lock_acquire(curproc->p_fd[fd]->file_lock);
+	kprintf("sys_close mark1.6        \n ");
+	if (curproc->p_fd[fd]->fvnode == NULL)
+	{
+		kprintf("sys_close mark1.7        \n ");
+	}
 	vfs_close(curproc->p_fd[fd]->fvnode);
-	
+	kprintf("sys_close mark2        \n ");
 	//free all memory
 	lock_release(curproc->p_fd[fd]->file_lock);
 	lock_destroy(curproc->p_fd[fd]->file_lock);
 	kfree(curproc->p_fd[fd]);
 	curproc->p_fd[fd] = NULL;
-	
 	return 0;
 }
 
@@ -286,25 +290,109 @@ sys_lseek(int fd, off_t pos, int whence, off_t* retval)
 	return 0;
 }
 
+/*
+dup2 clones the file handle oldfd onto the file handle newfd. 
+If newfd names an already-open file, that file is closed
+*/
 int
-sys_chdir(const char *pathname)
+sys_dup2(int oldfd, int newfd, int* retval)
 {
-	UNUSED(pathname);
+	//oldfd is not a valid file handle, 
+	//or newfd is a value that cannot be a valid file handle.
+	if (oldfd < 0 || oldfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX) {
+		*retval = -1;
+		return EBADF;
+	}
+
+	if (curproc->p_fd[oldfd] == NULL)
+	{
+		return EBADF;
+	}
+
+	if (curproc->p_fd[newfd] != NULL) {
+		if (sys_close(oldfd))
+			return EBADF;
+	}
+
+	if (newfd != oldfd)
+	{
+		curproc->p_fd[newfd] = kmalloc(sizeof(struct file_descriptor));
+		curproc->p_fd[newfd]->file_lock = lock_create(curproc->p_fd[oldfd]->fname);
+
+		lock_acquire(curproc->p_fd[newfd]->file_lock);
+		lock_acquire(curproc->p_fd[oldfd]->file_lock);
+
+		strcpy(curproc->p_fd[newfd]->fname, curproc->p_fd[oldfd]->fname);
+		curproc->p_fd[newfd]->flags = curproc->p_fd[oldfd]->flags;
+		curproc->p_fd[newfd]->offset = curproc->p_fd[oldfd]->offset;
+		curproc->p_fd[newfd]->fvnode = curproc->p_fd[oldfd]->fvnode;
+
+		*retval = newfd;
+
+		lock_release(curproc->p_fd[oldfd]->file_lock);
+		lock_release(curproc->p_fd[newfd]->file_lock);
+
+	}
 	return 0;
 }
 
+/*
+The current directory of the current process is set to the directory named by pathname.
+*/
 int
-sys_dup2(int oldfd, int newfd)
+sys_chdir(const char *pathname, int *retval)
 {
-	UNUSED(oldfd);
-	UNUSED(newfd);
+	//pathname was an invalid pointer
+	if (pathname == NULL)
+	{
+		return EFAULT;
+	}
+
+	size_t length;
+	char *kpathname = (char *)kmalloc(NAME_MAX * sizeof(char));
+	copyinstr((const_userptr_t)pathname, kpathname, NAME_MAX, &length);
+	int result = vfs_chdir(kpathname);
+
+	if (result == 1)
+	{
+		*retval = 1;
+		return result;
+	}
+	kfree(kpathname);
+	*retval = 0;
 	return 0;
 }
 
+/*
+Get name of current working directory
+On success, sys_getcwd returns the length of the data returned.
+On error, -1 is returned.
+*/
 int
-sys_getcwd(char *buf, size_t buflen)
+sys_getcwd(char *buf, size_t buflen, int *retval)
 {
-	UNUSED(buf);
-	UNUSED(buflen);
+	//buf points to an invalid address
+	if (buf == NULL)
+	{
+		return EFAULT;
+	}
+
+	struct uio uio;				//used to manage blocks of data moved around by the kernel
+	struct iovec iovec;			//read I/O calls	
+
+	char *buffer = (char*)kmalloc(buflen);
+	uio_kinit(&iovec, &uio, (void*)buffer, buflen, 0, UIO_READ);
+
+	iovec.iov_ubase = (userptr_t)buf;
+	iovec.iov_len = buflen;
+
+	int result = vfs_getcwd(&uio);
+
+	if (result == 1)
+	{
+		*retval = -1;
+		return result;
+	}
+
 	return 0;
 }

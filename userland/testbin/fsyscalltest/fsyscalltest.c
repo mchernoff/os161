@@ -96,7 +96,7 @@ test_dup2()
 	if (rv<0) {
 		err(1, "%s: write", file);
 	}
-	
+
 	dupfd = fd + 1;
 	rv = dup2(fd, dupfd);
 	if (rv<0) {
@@ -116,12 +116,12 @@ test_dup2()
 	if (rv<0) {
 		err(1, "%s: close (original fd)", file);
 	}
-
+	printf("test_dup2 mark1       \n");
 	rv = close(dupfd);
 	if (rv<0) {
 		err(1, "%s: close (duplicate)", file);
 	}
-
+	printf("test_dup2 mark2");
 	fd = open(file, O_RDONLY);
 	if (fd<0) {
 		err(1, "%s: open for read", file);
