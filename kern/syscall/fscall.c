@@ -384,8 +384,7 @@ sys_getcwd(char *buf, size_t buflen, int *retval)
 	struct uio uio;				//used to manage blocks of data moved around by the kernel
 	struct iovec iovec;			//read I/O calls	
 
-	char *buffer = (char*)kmalloc(buflen);
-	uio_kinit(&iovec, &uio, (void*)buffer, buflen, 0, UIO_READ);
+	uio_kinit(&iovec, &uio, buf, buflen, 0, UIO_READ);
 
 	iovec.iov_ubase = (userptr_t)buf;
 	iovec.iov_len = buflen;
@@ -398,5 +397,6 @@ sys_getcwd(char *buf, size_t buflen, int *retval)
 		return result;
 	}
 
+	*retval = buflen - uio.uio_resid;
 	return 0;
 }
