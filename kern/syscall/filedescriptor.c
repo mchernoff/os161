@@ -76,6 +76,7 @@ int file_descriptor_init(struct proc *process)
 	process->p_fd[0]->flags = O_RDONLY;					
 	process->p_fd[0]->offset = 0;
 	process->p_fd[0]->file_lock = lock_create(stdin);
+	process->p_fd[0]->vnode_reference = 1;
 
 	//initialize stdout
 	process->p_fd[1] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor));
@@ -85,6 +86,7 @@ int file_descriptor_init(struct proc *process)
 	process->p_fd[1]->flags = O_WRONLY;
 	process->p_fd[1]->offset = 0;
 	process->p_fd[1]->file_lock = lock_create(stdout);
+	process->p_fd[0]->vnode_reference = 1;
 
 	//initialize stderr
 	process->p_fd[2] = (struct file_descriptor *)kmalloc(sizeof(struct file_descriptor));
@@ -94,6 +96,7 @@ int file_descriptor_init(struct proc *process)
 	process->p_fd[2]->flags = O_RDWR;
 	process->p_fd[2]->offset = 0;
 	process->p_fd[2]->file_lock = lock_create(stderr);
+	process->p_fd[0]->vnode_reference = 1;
 
 	return 1;
 }

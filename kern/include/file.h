@@ -12,6 +12,7 @@ struct file_descriptor				//define a file descriptor that has a file structure a
 	mode_t mode;				//may use or not, its an optional arguement from OS/161 Reference Manual
 	off_t offset;				//the position of entry in file table
 	struct lock *file_lock;
+	int vnode_reference;
 };
 
 //initialize the file descriptor and reverse 0, 1, 2

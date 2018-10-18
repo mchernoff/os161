@@ -217,20 +217,29 @@ sys_read(int fd, void *buf, size_t buflen, int* retval)
 int
 sys_close(int fd)
 {
-	kprintf("sys_close mark1        \n ");
 	//check if fd is valid input
 	if (curproc->p_fd[fd] == NULL) {
 		return EBADF;
 	}
-	kprintf("sys_close mark1.5        \n ");
 	lock_acquire(curproc->p_fd[fd]->file_lock);
-	kprintf("sys_close mark1.6        \n ");
-	if (curproc->p_fd[fd]->fvnode == NULL)
+
+
+	if (curproc->p_fd[fd]->vnode_reference == 1)
 	{
-		kprintf("sys_close mark1.7        \n ");
+		vfs_close(curproc->p_fd[fd]->fvnode);
 	}
-	vfs_close(curproc->p_fd[fd]->fvnode);
-	kprintf("sys_close mark2        \n ");
+	else
+	{
+		curproc->p_fd[fd]->vnode_reference--;
+	}
+
+	//if (curproc->p_fd[fd]->fvnode == NULL)
+	//{
+	//	kprintf("sys_close mark1.7        \n ");
+	//}
+	//vfs_close(curproc->p_fd[fd]->fvnode);
+	//kprintf("sys_close mark2        \n ");
+
 	//free all memory
 	lock_release(curproc->p_fd[fd]->file_lock);
 	lock_destroy(curproc->p_fd[fd]->file_lock);
@@ -299,7 +308,7 @@ sys_dup2(int oldfd, int newfd, int* retval)
 {
 	//oldfd is not a valid file handle, 
 	//or newfd is a value that cannot be a valid file handle.
-	if (oldfd < 0 || oldfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX) {
+	if (oldfd < 0 || newfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX) {
 		*retval = -1;
 		return EBADF;
 	}
@@ -307,11 +316,6 @@ sys_dup2(int oldfd, int newfd, int* retval)
 	if (curproc->p_fd[oldfd] == NULL)
 	{
 		return EBADF;
-	}
-
-	if (curproc->p_fd[newfd] != NULL) {
-		if (sys_close(oldfd))
-			return EBADF;
 	}
 
 	if (newfd != oldfd)

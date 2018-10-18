@@ -111,17 +111,14 @@ test_dup2()
 	if (rv<0) {
 		err(1, "%s: write via duplicated fd", file);
 	}
-
 	rv = close(fd);
 	if (rv<0) {
 		err(1, "%s: close (original fd)", file);
 	}
-	printf("test_dup2 mark1       \n");
 	rv = close(dupfd);
 	if (rv<0) {
 		err(1, "%s: close (duplicate)", file);
 	}
-	printf("test_dup2 mark2");
 	fd = open(file, O_RDONLY);
 	if (fd<0) {
 		err(1, "%s: open for read", file);
