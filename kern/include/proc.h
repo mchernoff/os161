@@ -58,6 +58,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+	pid_t pid;					/* Process ID */
 
 	//define a file table with OPEN_MAX entries 
 	//each entries should have a lock as well

@@ -400,3 +400,10 @@ sys_getcwd(char *buf, size_t buflen, int *retval)
 	*retval = buflen - uio.uio_resid;
 	return 0;
 }
+
+// Returns the process ID of the currentprocess
+int sys_getpid(int* retval)
+{
+	*retval = (int)curproc->pid;
+	return 0;
+}

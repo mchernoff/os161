@@ -70,5 +70,8 @@ int sys_chdir(const char *pathname, int *retval);
 int sys_dup2(int oldfd, int newfd, int* retval);
 int sys_getcwd(char *buf, size_t buflen, int *retval);
 
+//File syscall from assignment5
+int sys_getpid(int* retval);
+
 
 #endif /* _SYSCALL_H_ */

@@ -49,11 +49,18 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <file.h>
+#include <limits.h>
+
+#define PID_RANGE __PID_MAX - __PID_MIN
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+
+// Map of process ID availability
+char proc_table[PID_RANGE];
 
 /*
  * Create a proc structure.
@@ -63,6 +70,7 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
+	pid_t new_pid;
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -82,6 +90,23 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+	
+	int i;
+	int found = 0;
+	int index;
+	for(i = __PID_MIN; i < __PID_MAX; i++){
+		index = i - __PID_MIN;
+		if(proc_table[index] == 0){
+			new_pid = (pid_t)i;
+			proc_table[index] = 1;
+			found = 1;
+			break;
+		}
+	}
+	if(!found){
+		panic("No free process ID numbers");
+	}
+	proc->pid = new_pid;
 
 	return proc;
 }
@@ -165,6 +190,8 @@ proc_destroy(struct proc *proc)
 		}
 		as_destroy(as);
 	}
+	
+	proc_table[(int)(proc->pid) - __PID_MIN] = 0;
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
