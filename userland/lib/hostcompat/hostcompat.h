@@ -29,7 +29,6 @@
 
 
 #include <sys/types.h>
-#include <stdint.h>
 
 void hostcompat_init(int argc, char **argv);
 

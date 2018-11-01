@@ -46,7 +46,7 @@
 int
 main(int argc, char *argv[])
 {
-	static char writebuf[41] = "Twiddle dee dee, Twiddle dum dum.......\n";
+	static char writebuf[40] = "Twiddle dee dee, Twiddle dum dum.......\n";
 	static char readbuf[41];
 
 	const char *file;
@@ -99,10 +99,10 @@ main(int argc, char *argv[])
 		errx(1, "Buffer data mismatch!");
 	}
 
-	//rv = remove(file);
-	//if (rv<0) {
-	//	err(1, "%s: remove", file);
-	//}
+	rv = remove(file);
+	if (rv<0) {
+		err(1, "%s: remove", file);
+	}
 	printf("Passed filetest.\n");
 	return 0;
 }

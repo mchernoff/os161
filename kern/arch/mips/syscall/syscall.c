@@ -30,12 +30,14 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <kern/syscall.h>
+#include <endian.h>
 #include <lib.h>
 #include <mips/trapframe.h>
 #include <thread.h>
 #include <current.h>
+#include <copyinout.h>
 #include <syscall.h>
-#include <../../../syscall/fscall.c>
+
 
 /*
  * System call dispatcher.
@@ -80,7 +82,6 @@ syscall(struct trapframe *tf)
 {
 	int callno;
 	int32_t retval;
-	off_t seekret;
 	int err;
 
 	KASSERT(curthread != NULL);
@@ -99,8 +100,8 @@ syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
-	seekret = 0;
-	int whence = 0;
+
+	/* note the casts to userptr_t */
 
 	switch (callno) {
 	    case SYS_reboot:
@@ -112,49 +113,96 @@ syscall(struct trapframe *tf)
 				 (userptr_t)tf->tf_a1);
 		break;
 
-		case SYS_open:
-		err = sys_open((char *)tf->tf_a0,(int)tf->tf_a1, (mode_t)tf->tf_a2, &retval);
-		break;
-		
-		case SYS_write:
-		err = sys_write((int)tf->tf_a0,(void*)tf->tf_a1,(size_t)tf->tf_a2, &retval);
-		break;
-		
-		case SYS_close:
-		err = sys_close((int)tf->tf_a0);
-		break;
-		
-		case SYS_read:
-		err = sys_read((int)tf->tf_a0, (void*)tf->tf_a1, (size_t)tf->tf_a2, &retval);
+
+	    /* file calls */
+
+	    case SYS_open:
+		err = sys_open(
+			(userptr_t)tf->tf_a0,
+			tf->tf_a1,
+			tf->tf_a2,
+			&retval);
 		break;
 
-		case SYS_dup2:
-		err = sys_dup2((int)tf->tf_a0, (int)tf->tf_a1, &retval);
+	    case SYS_dup2:
+		err = sys_dup2(
+			tf->tf_a0,
+			tf->tf_a1,
+			&retval);
 		break;
 
-		case SYS_chdir:
-		err = sys_chdir((char *)tf->tf_a0, &retval);
+	    case SYS_close:
+		err = sys_close(tf->tf_a0);
 		break;
 
-		case SYS___getcwd:
-		err = sys_getcwd((char *)tf->tf_a0, (size_t)tf->tf_a1, &retval);
+	    case SYS_read:
+		err = sys_read(
+			tf->tf_a0,
+			(userptr_t)tf->tf_a1,
+			tf->tf_a2,
+			&retval);
 		break;
-		
-		case SYS_lseek:
-		copyin((const_userptr_t)(tf->tf_sp+16), &whence, sizeof(whence));
-		off_t offset = (off_t)tf->tf_a2;
-		offset = offset << 32;
-		offset = offset | (off_t)tf->tf_a3;
-		err = sys_lseek((int)tf->tf_a0,offset,whence, &seekret);
-		tf->tf_v1 = seekret & 0xFFFFFFFF;
-		retval = seekret >> 32;
+	    case SYS_write:
+		err = sys_write(
+			tf->tf_a0,
+			(userptr_t)tf->tf_a1,
+			tf->tf_a2,
+			&retval);
 		break;
-		
+	    case SYS_lseek:
+		{
+			/*
+			 * Because the position argument is 64 bits wide,
+			 * it goes in the a2/a3 registers and we have to
+			 * get "whence" from the stack. Furthermore, the
+			 * return value is 64 bits wide, so the extra
+			 * part of it goes in the v1 register.
+			 *
+			 * This is a trifle messy.
+			 */
+			uint64_t offset;
+			int whence;
+			off_t retval64;
+
+			join32to64(tf->tf_a2, tf->tf_a3, &offset);
+
+			err = copyin((userptr_t)tf->tf_sp + 16,
+				     &whence, sizeof(int));
+			if (err) {
+				break;
+			}
+
+			err = sys_lseek(tf->tf_a0, offset, whence, &retval64);
+			if (err) {
+				break;
+			}
+
+			split64to32(retval64, &tf->tf_v0, &tf->tf_v1);
+			retval = tf->tf_v0;
+		}
+		break;
+
+	    case SYS_chdir:
+		err = sys_chdir((userptr_t)tf->tf_a0);
+		break;
+
+	    case SYS___getcwd:
+		err = sys___getcwd(
+			(userptr_t)tf->tf_a0,
+			tf->tf_a1,
+			&retval);
+		break;
+
+
+	    /* Even more system calls will go here */
+
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
 		break;
 	}
+
 
 	if (err) {
 		/*
@@ -163,9 +211,7 @@ syscall(struct trapframe *tf)
 		 * code in errno.
 		 */
 		tf->tf_v0 = err;
-		tf->tf_v1 = 0;
 		tf->tf_a3 = 1;      /* signal an error */
-		
 	}
 	else {
 		/* Success. */

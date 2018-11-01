@@ -242,7 +242,7 @@
 #
 
 defdevice       beep			dev/generic/beep.c
-defdevice	    con			dev/generic/console.c
+defdevice	con			dev/generic/console.c
 defdevice       rtclock                 dev/generic/rtclock.c
 defdevice       random                  dev/generic/random.c
 
@@ -373,10 +373,12 @@ file      vfs/devnull.c
 # calls assignment.)
 #
 
+file      syscall/filetable.c
 file      syscall/loadelf.c
+file      syscall/openfile.c
 file      syscall/runprogram.c
+file      syscall/file_syscalls.c
 file      syscall/time_syscalls.c
-file      syscall/filedescriptor.c
 
 #
 # Startup and initialization
@@ -421,16 +423,6 @@ defoption netfs
 #
 # Note that "emufs" is completely contained in the "emu" device.
 #
-
-
-########################################
-#                                      #
-#  Synchronization problems assignment #
-#                                      #
-########################################
-
-defoption synchprobs
-optfile   synchprobs  synchprobs/airballoon.c
 
 
 ########################################
