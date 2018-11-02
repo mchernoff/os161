@@ -407,3 +407,64 @@ int sys_getpid(int* retval)
 	*retval = (int)curproc->pid;
 	return 0;
 }
+
+// fork duplicates the currently running process. The two copies are identical, 
+// except that one (the "new" one, or "child"), has a new, unique process id, 
+// and in the other (the "parent") the process id is unchanged.
+// The process id must be greater than 0. The two processes do not share memory 
+// or open file tables; this state is copied into the new process, and subsequent 
+// modification in one process does not affect the other. However, the file 
+// handle objects the file tables point to are shared, so, for instance, 
+// calls to lseek in one process can affect the other.
+int sys_fork(struct trapframe *p_tf, int* retval)
+{
+	int result;
+
+	// Copy parent's trap frame, and pass it to child thread
+	struct trapframe *child_proc_tf;
+	child_proc_tf = kmalloc(sizeof(struct trapframe));
+	memcpy(child_proc_tf,p_tf,sizeof(struct trapframe));
+	if(child_proc_tf == NULL)
+	{
+		kfree(child_proc_tf);
+		return result; 
+	}
+
+	// Copy parent's address space to child address
+	struct addrspace *child_proc_ads;
+	result = as_copy(curproc->p_addrspace, &child_proc_ads);
+	if(result == 1 || child_proc_ads == NULL || curproc->p_addrspace == NULL)
+	{
+		kfree(child_proc_tf);
+		as_destroy(child_proc_ads);
+		return result; 
+	}
+
+	// Copy parent's file table into child, also acquire the lock while doing 
+	// this
+	struct proc *child_proc = proc_create_runprogram(curproc->p_name);
+	for(int i = 0; i < OPEN_MAX; i++ )
+	{
+		lock_acquire(curproc->p_fd[i]->file_lock);
+		child_proc->p_fd[i] = curproc->p_fd[i];
+		lock_release(curproc->p_fd[i]->file_lock);
+	}
+
+	if (child_proc == NULL) 
+	{
+		kfree(child_proc_tf);
+		as_destroy(child_proc_ads);
+		return ENOMEM; 
+	}
+
+	// Parent returns with child's pid immediately by adding this child's
+	// pid to parent's child process table
+	// I have to think about how to do this
+	pid_t child_pid = child_proc->pid;
+
+
+	// Create child thread (using thread_fork)
+	// Child returns with 0
+
+	return 0;
+}
