@@ -50,6 +50,7 @@
 #include <vnode.h>
 #include <file.h>
 #include <limits.h>
+#include <synch.h>
 
 #define PID_RANGE __PID_MAX - __PID_MIN
 
@@ -107,6 +108,20 @@ proc_create(const char *name)
 		panic("No free process ID numbers");
 	}
 	proc->pid = new_pid;
+
+	proc->parent_proc = NULL;
+
+	for (int i = 0; i < PID_MIN; i++)
+	{
+		proc->child_proc_table[i] = NULL;
+	}
+
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		proc->child_proc_table[i] = kmalloc(sizeof(struct child_proc));
+		// proc->child_proc_table[i]->child_proc_lock = lock_create(proc->p_name);
+		// proc->child_proc_table[i]->child_proc = NULL;
+	}
 
 	return proc;
 }

@@ -444,6 +444,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	// Copy parent's file table into child, also acquire the lock while doing 
 	// this
 	struct proc *child_proc = proc_create_runprogram(curproc->p_name);
+	child_proc->parent_proc = curproc;
 
 	for(int i = 0; i <= OPEN_MAX; i++)
 	{
@@ -476,6 +477,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	{
 		kprintf("before lock_acquire at %d \n ", i);
 		//save the child to parent's child process table
+		//curproc->child_proc_table[i]->child_proc_lock = lock_create(curproc->p_name);
 		lock_acquire(curproc->child_proc_table[i]->child_proc_lock);
 		kprintf("after lock_acquire at %d \n ", i);
 		if (!curproc->child_proc_table[i]->child_proc)
