@@ -18,4 +18,6 @@ struct file_descriptor				//define a file descriptor that has a file structure a
 //initialize the file descriptor and reverse 0, 1, 2
 int file_descriptor_init(struct proc *process);
 
+void decrement_vnode_reference(void);
+
 #endif

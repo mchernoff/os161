@@ -202,8 +202,20 @@ syscall(struct trapframe *tf)
  *
  * Thus, you can trash it and do things another way if you prefer.
  */
-void
-enter_forked_process(struct trapframe *tf)
+// Enter user mode for a newly forked process.
+void enter_forked_process(void *data1, unsigned long data2)
 {
-	(void)tf;
+	struct trapframe *p_tf = (struct trapframe*)data1;
+	struct addrspace *p_as = (struct addrspace*)data2;
+
+	struct trapframe child_tf = *p_tf;
+
+	child_tf.tf_a3 = 0;				// return  value = 0
+	child_tf.tf_v0 = 0;				// success
+	child_tf.tf_epc += 4;			// increament pc to execute next line
+
+	as_copy(p_as, &curproc->p_addrspace);
+	as_activate();
+
+	mips_usermode(&child_tf);		// change back to usermode
 }

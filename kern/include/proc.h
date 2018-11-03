@@ -63,6 +63,23 @@ struct proc {
 	//define a file table with OPEN_MAX entries 
 	//each entries should have a lock as well
 	struct file_descriptor *p_fd[OPEN_MAX];		
+
+	//child process table 
+	struct child_proc *child_proc_table[PID_MAX]; 
+
+	struct proc *parent_proc;
+};
+
+struct proc_id *process_table[PID_MAX]; 
+
+struct child_proc {
+	struct lock *child_proc_lock;
+	struct proc *child_proc;
+};
+
+struct proc_id {
+	struct lock *proc_id_lock;
+	struct proc *proc;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -88,6 +105,5 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
-
 
 #endif /* _PROC_H_ */
