@@ -440,19 +440,17 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 		as_destroy(child_proc_ads);
 		return result; 
 	}
-
 	// Copy parent's file table into child, also acquire the lock while doing 
 	// this
 	struct proc *child_proc = proc_create_runprogram(curproc->p_name);
 	child_proc->parent_proc = curproc;
 
+
 	for(int i = 0; i <= OPEN_MAX; i++)
 	{
-		//kprintf("i = %d \n ", i);
 		if(curproc->p_fd[i] != NULL)
 		{
 			//child_proc->p_fd[i] = fd_copy(fdt->p_fd[i]);
-			//kprintf("curproc->p_fd[i] != NULL\n ");
 			child_proc->p_fd[i]->vnode_reference++;
 
 			if(i <= 2)
@@ -472,27 +470,21 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	}
 
 	// adding this child's pid to parent's child process table
-	kprintf("Before for loop \n ");
 	for(int i = PID_MIN; i < PID_MAX; i++)
 	{
-		kprintf("before lock_acquire at %d \n ", i);
 		//save the child to parent's child process table
-		//curproc->child_proc_table[i]->child_proc_lock = lock_create(curproc->p_name);
-		lock_acquire(curproc->child_proc_table[i]->child_proc_lock);
-		kprintf("after lock_acquire at %d \n ", i);
-		if (!curproc->child_proc_table[i]->child_proc)
+		lock_acquire(curproc->child_proc_lock);
+		if (curproc->child_proc_table[i] == NULL)
 		{
-			kprintf("find a space in parent's child process table %d \n ", i);
-			curproc->child_proc_table[i]->child_proc = child_proc;
+			curproc->child_proc_table[i] = child_proc;
 			child_proc->parent_proc = curproc;
-			lock_release(curproc->child_proc_table[i]->child_proc_lock);
+			lock_release(curproc->child_proc_lock);
 			break;
 		}
 
-		lock_release(curproc->child_proc_table[i]->child_proc_lock);
-		kprintf("lock_acquire at %d \n ", i);
+		lock_release(curproc->child_proc_lock);
 		// parent's child process already full, then return ENOMEM
-		if (curproc->child_proc_table[i]->child_proc != child_proc && i == PID_MAX - 1)
+		if (curproc->child_proc_table[i] != child_proc && i == PID_MAX - 1)
 		{
 			kfree(child_proc_tf);
 			as_destroy(child_proc_ads);
@@ -503,34 +495,35 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	}
 
 	// Add the child process to the process ID table
+	int found = 0;
+	lock_acquire(process_table_lock);
 	for (int i = PID_MIN; i < PID_MAX; i++)
 	{
-		lock_acquire(process_table[i]->proc_id_lock);
-
 		//save the child to process id table
-		if (!process_table[i]->proc)
+		if (!process_table[i])
 		{
-			process_table[i]->proc = child_proc;
+			process_table[i] = child_proc;
 			child_proc->pid = i;
+			found = 1;
 			break;
 		}
-
-		lock_release(process_table[i]->proc_id_lock);
-
-		// process id table already full, then return ENOMEM
-		if (process_table[i]->proc != child_proc && i == PID_MAX - 1)
-		{
-			kfree(child_proc_tf);
-			as_destroy(child_proc_ads);
-			proc_destroy(child_proc);
-			decrement_vnode_reference();
-			return ENOMEM;
-		}
+	}
+	lock_release(process_table_lock);
+	// process id table already full, then return ENOMEM
+	if(!found){
+		kfree(child_proc_tf);
+		as_destroy(child_proc_ads);
+		proc_destroy(child_proc);
+		decrement_vnode_reference();
+		return ENOMEM;
 	}
 
 	// Create child thread (using thread_fork)
+	kprintf("before forking\n");
 	result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, (unsigned long)child_proc_ads);
+	kprintf("after forking\n");
 	if (result) {
+	kprintf("Mattinif\n");
 		kfree(child_proc_tf);
 		as_destroy(child_proc_ads);
 		proc_destroy(child_proc);

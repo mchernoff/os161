@@ -65,22 +65,14 @@ struct proc {
 	struct file_descriptor *p_fd[OPEN_MAX];		
 
 	//child process table 
-	struct child_proc *child_proc_table[PID_MAX]; 
+	struct proc *child_proc_table[PID_MAX]; 
+	struct lock *child_proc_lock;
 
 	struct proc *parent_proc;
 };
 
-struct proc_id *process_table[PID_MAX]; 
-
-struct child_proc {
-	struct lock *child_proc_lock;
-	struct proc *child_proc;
-};
-
-struct proc_id {
-	struct lock *proc_id_lock;
-	struct proc *proc;
-};
+struct proc *process_table[PID_MAX];
+struct lock *process_table_lock;
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;

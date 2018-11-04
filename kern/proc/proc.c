@@ -59,7 +59,6 @@
  */
 struct proc *kproc;
 
-
 // Map of process ID availability
 char proc_table[PID_RANGE];
 
@@ -115,10 +114,11 @@ proc_create(const char *name)
 	{
 		proc->child_proc_table[i] = NULL;
 	}
+	proc->child_proc_lock = lock_create("child proc lock");
 
 	for (int i = PID_MIN; i < PID_MAX; i++)
 	{
-		proc->child_proc_table[i] = kmalloc(sizeof(struct child_proc));
+		//proc->child_proc_table[i] = kmalloc(sizeof(struct child_proc));
 		// proc->child_proc_table[i]->child_proc_lock = lock_create(proc->p_name);
 		// proc->child_proc_table[i]->child_proc = NULL;
 	}
@@ -205,6 +205,13 @@ proc_destroy(struct proc *proc)
 		}
 		as_destroy(as);
 	}
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		//lock_destroy(proc->child_proc_table[i]->child_proc_lock);
+		if(proc->child_proc_table[i] != NULL){
+			kfree(proc->child_proc_table[i]);
+		}
+	}
 	
 	proc_table[(int)(proc->pid) - __PID_MIN] = 0;
 
@@ -222,6 +229,7 @@ void
 proc_bootstrap(void)
 {
 	kproc = proc_create("[kernel]");
+	process_table_lock = lock_create("process_table_lock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
