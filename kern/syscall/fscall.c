@@ -425,6 +425,8 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	struct trapframe *child_proc_tf;
 	child_proc_tf = kmalloc(sizeof(struct trapframe));
 	memcpy(child_proc_tf,p_tf,sizeof(struct trapframe));
+	//memcpy(p_tf, child_proc_tf,sizeof(struct trapframe));
+
 	if(child_proc_tf == NULL)
 	{
 		kfree(child_proc_tf);
@@ -442,21 +444,35 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	}
 	// Copy parent's file table into child, also acquire the lock while doing 
 	// this
-	struct proc *child_proc = proc_create_runprogram(curproc->p_name);
-	child_proc->parent_proc = curproc;
+	if(curproc == NULL)
+	{
+		kprintf("curproc is NULL\n");
+	}
+	struct proc *child_proc = proc_create_runprogram("Child");
+	//child_proc->parent_proc = curproc;
+	//child_proc->p_addrspace = child_proc_ads;
 
+	// if (child_proc == NULL) {
+	// 	return -1; 
+	// }
 
 	for(int i = 0; i <= OPEN_MAX; i++)
 	{
 		if(curproc->p_fd[i] != NULL)
 		{
-			//child_proc->p_fd[i] = fd_copy(fdt->p_fd[i]);
+			kprintf("loop p_fd at i = %d \n", i);
+			lock_acquire(child_proc->p_fd[i]->file_lock);
+			//lock_acquire(curproc->p_fd[i]->file_lock);
+			//child_proc->p_fd[i] = curproc->p_fd[i];
 			child_proc->p_fd[i]->vnode_reference++;
 
 			if(i <= 2)
 			{
 				child_proc->p_fd[i]->offset = 0;
 			}
+			//lock_release(curproc->p_fd[i]->file_lock);
+			lock_release(child_proc->p_fd[i]->file_lock);
+			
 		}
 		//kprintf("if statement done");
 	}
@@ -473,16 +489,16 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	for(int i = PID_MIN; i < PID_MAX; i++)
 	{
 		//save the child to parent's child process table
-		lock_acquire(curproc->child_proc_lock);
+		
 		if (curproc->child_proc_table[i] == NULL)
 		{
+			lock_acquire(curproc->child_proc_lock);
 			curproc->child_proc_table[i] = child_proc;
 			child_proc->parent_proc = curproc;
 			lock_release(curproc->child_proc_lock);
 			break;
 		}
 
-		lock_release(curproc->child_proc_lock);
 		// parent's child process already full, then return ENOMEM
 		if (curproc->child_proc_table[i] != child_proc && i == PID_MAX - 1)
 		{
@@ -520,6 +536,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 
 	// Create child thread (using thread_fork)
 	kprintf("before forking\n");
+	//as_activate(child_proc_ads);
 	result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, (unsigned long)child_proc_ads);
 	kprintf("after forking\n");
 	if (result) {
