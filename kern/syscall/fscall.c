@@ -537,8 +537,10 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	// Create child thread (using thread_fork)
 	kprintf("before forking\n");
 	//as_activate(child_proc_ads);
+	//result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, 1);
 	result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, (unsigned long)child_proc_ads);
 	kprintf("after forking\n");
+	//child_proc->p_addrspace = child_proc_ads;
 	if (result) {
 	kprintf("Mattinif\n");
 		kfree(child_proc_tf);
