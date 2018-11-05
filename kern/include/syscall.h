@@ -73,5 +73,6 @@ int sys_getcwd(char *buf, size_t buflen, int *retval);
 //File syscall from assignment5
 int sys_getpid(int* retval);
 int sys_fork(struct trapframe *p_tf, int *retval);
+int sys_execv(const char* program, char** args, int *retval);
 int sys_waitpid(int pid, int *p_status, int options, int *retval);
 #endif /* _SYSCALL_H_ */

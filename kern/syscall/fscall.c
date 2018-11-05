@@ -409,6 +409,118 @@ int sys_getpid(int* retval)
 	return 0;
 }
 
+static 
+void 
+kfree_all(char *argv[])
+{
+	int i;
+	for (i=0; argv[i]; i++)
+		kfree(argv[i]);
+}
+
+// Replaces the current executing program with a newly loaded program image
+int sys_execv(const char* path, char** args)
+{
+	char** savedargv, newargv;
+	struct addrspace *as;
+	struct vnode *v;
+	vaddr_t entrypoint, stackptr;
+	int result;
+	
+	/* Copy arguments */
+	int i,j;
+	for(i = 0; args[i]; i++);
+	for(j = 0; j < i; j++){
+		savedargv[j] = kmalloc(strlen(args[j])+1);
+		if(savedargv[j] == NULL){
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return ENOMEM;
+		}
+		result = copyinstr(args[j], savedargv[j], strlen(args[j]+1), NULL);
+		if (result)
+		{
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return result;
+		}
+	}
+	savedargv[j] = NULL;
+
+	/* Open the file. */
+	result = vfs_open(path, O_RDONLY, 0, &v);
+	if (result) {
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	/* We should be a new process. */
+	KASSERT(proc_getas() == NULL);
+
+	/* Create a new address space. */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return ENOMEM;
+	}
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+	/* Load the executable. */
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	for(j = 0; j < i; j++){
+		newargv[j] = kmalloc(strlen(savedargv[j])+1);
+		if(savedargv[j] == NULL){
+			kfree_all(newargv);
+			kfree(newargv);
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return ENOMEM;
+		}
+		result = copyoutstr(savedargv[j], newargv[j], strlen(savedargv[j]+1), NULL);
+		if (result)
+		{
+			kfree_all(newargv);
+			kfree(newargv);
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return result;
+		}
+	}
+	/* Warp to user mode. */
+	enter_new_process(i, newargv,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
+
+	return EINVAL;
+	
+}
+
 // fork duplicates the currently running process. The two copies are identical, 
 // except that one (the "new" one, or "child"), has a new, unique process id, 
 // and in the other (the "parent") the process id is unchanged.
