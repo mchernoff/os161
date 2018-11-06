@@ -270,7 +270,7 @@ cv_wait(struct cv *cv, struct lock *lock)
 {
 	KASSERT(lock != NULL);				//always check to make sure lock was initialized
 	KASSERT(cv != NULL);				//always check to make sure cv was initialized		
-
+	KASSERT(lock_do_i_hold(lock));
 
 	spinlock_acquire(&(cv->cv_spinlock));
 	lock_release(lock);
@@ -298,7 +298,7 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 {
 	KASSERT(lock != NULL);				//always check to make sure lock was initialized
 	KASSERT(cv != NULL);				//always check to make sure cv was initialized
-	KASSERT(lock_do_i_hold(lock));		//make sure currrent thread HOLD the lock
+	//KASSERT(lock_do_i_hold(lock));		//make sure currrent thread HOLD the lock
 
 	spinlock_acquire(&(cv->cv_spinlock));
 	wchan_wakeall(cv->cv_wchan, &(cv->cv_spinlock));		//if there are any threads enqueued then all such threads are allowed to resume execution
