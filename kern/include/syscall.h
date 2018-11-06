@@ -74,4 +74,5 @@ int sys_getcwd(char *buf, size_t buflen, int *retval);
 int sys_getpid(int* retval);
 int sys_fork(struct trapframe *p_tf, int *retval);
 int sys_waitpid(int pid, int *p_status, int options, int *retval);
+void sys_exit(int exitcode);
 #endif /* _SYSCALL_H_ */

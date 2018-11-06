@@ -69,6 +69,15 @@ struct proc {
 	struct lock *child_proc_lock;
 
 	struct proc *parent_proc;
+
+	// locks in waitpid for wait proc with pid to finish
+	struct lock *proc_wait_lock;
+	struct cv *proc_wait_cv;
+
+	int proc_is_exit;				// 0 if not exit, 1 if already exit
+	int exit_code;
+
+	struct lock *proc_exit_lock;
 };
 
 struct proc *process_table[PID_MAX];

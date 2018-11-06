@@ -26,6 +26,7 @@
 #include <stat.h>
 #include <kern/seek.h>
 #include <addrspace.h>
+#include <kern/wait.h>
 
 #define UNUSED(x) (void)(x)
 
@@ -556,6 +557,126 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	return 0;
 }
 
+/*
+	Wait for the process specified by pid to exit, and return an encoded 
+	exit status in the integer pointed to by status. If that process has 
+	exited already, waitpid returns immediately. If that process does not 
+	exist, waitpid fails.
+*/
+int sys_waitpid(int pid, int *proc_status, int options, int *retval);
+{
+	//if status argument was an invalid pointer
+	if (proc_status == NULL)
+	{
+		return EFAULT;
+	}
+
+	*retval = -1;
+
+	//The options argument requested invalid or unsupported options.
+	if (options != 0)
+	{
+		return EINVAL;
+	}
+
+	//The pid argument named a nonexistent process
+	if (pid < PID_MIN || pid > PID_MAX)
+	{
+		return ESRCH;
+	}
+
+	struct proc *child_proc;
+
+	//find the child process that specified by pid to exit from current process 
+	lock_acquire(curproc->child_proc_lock);	
+	for(int i = 0; i < PID_MAX; i++)
+	{
+		if (curproc->child_proc_table[i] && curproc->child_proc_table[i]->pid == pid)
+		{
+			child_proc = curproc->children_procs[i];
+			break;
+		}
+	}
+	lock_release(curproc->child_proc_lock);
+
+	// check if pid argument named a process that was not a child of the current process
+	// only the parent can wait for the child process
+	if(child_proc == NULL)
+	{
+		return ECHILD;
+	}
+
+	//Wait for the process specified by pid to exit
+	lock_acquire(child_proc->proc_wait_lock);
+	while (child_proc->proc_is_exit == 0)
+	{
+		cv_wait(child_proc->proc_wait_cv, child_proc->proc_wait_lock);
+	}
+	lock_release(child_proc->proc_wait_lock);
+
+	//return an encoded exit status in the integer pointed to by status
+	int result = copyout((void *)(&(child_proc->exit_code)), (userptr_t)proc_status, sizeof(int));
+	memcpy(retval, &pid, sizeof(int));
+
+	if(result == 1)
+	{
+		return 1;
+	}
+
+	*retval = pid;
+	return 0;
+}
+
+/*
+	Cause the current process to exit. The exit code exitcode is reported back to 
+	other process(es) via the waitpid() call. The process id of the exiting process 
+	should not be reused until all processes interested in collecting the exit code 
+	with waitpid have done so. 	
+*/
+void sys_exit(int exitcode)
+{
+	struct proc *proc = curproc;
+
+	proc->exit_code = _MKWAIT_EXIT(exitcode);
+	proc->exit_status = 1;
+
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		lock_acquire(proc->children_procs[i]->child_proc_lock);
+		if (proc->child_proc_table[i])
+		{
+			//lock_release(proc->children_procs[i]->p_exit_lock);
+			proc->child_proc_table[i] = NULL;
+		}
+		lock_release(proc->child_proc_table[i]->child_proc_lock);
+	}
+
+	// Free the child processes's wait locks
+	cv_broadcast(proc->proc_wait_cv, proc->proc_wait_lock);
+
+	as_deactivate();
+	struct addrspace *as = proc_setas(NULL);
+	as_destroy(as);
+
+	proc_remthread(curthread);
+
+	wait_for_parent_process_to_exit(proc);
+
+	lock_acquire(process_table_lock);	
+	process_table[proc->pid]= NULL;
+	lock_release(process_table_lock);	
+
+	proc_destroy(proc);
+
+	thread_exit();
+}
+
+void
+wait_for_parent_process_to_exit(struct proc *proc)
+{
+	lock_acquire(proc->proc_exit_lock);
+	lock_release(proc->proc_exit_lock);
+}
 
 void decrement_vnode_reference(void)
 {

@@ -123,6 +123,12 @@ proc_create(const char *name)
 		// proc->child_proc_table[i]->child_proc = NULL;
 	}
 
+	proc->proc_exit_lock = lock_create("process exit lock");
+	proc->proc_wait_lock = lock_create("process wait lock");
+	proc->proc_wait_cv = cv_create("process wait cv");
+	proc->proc_is_exit = 0;
+	proc->exit_code = -1;
+
 	return proc;
 }
 
