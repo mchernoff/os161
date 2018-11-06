@@ -29,7 +29,7 @@
 #include <kern/wait.h>
 
 #define UNUSED(x) (void)(x)
-
+void wait_for_parent_process_to_exit(struct proc *proc);
 /*
 	Opens the file, device, or other kernel object named by the pathname filename. 
 	The flags argument specifies how to open the file and should consist of one of
@@ -410,6 +410,118 @@ int sys_getpid(int* retval)
 	return 0;
 }
 
+static 
+void 
+kfree_all(char *argv[])
+{
+	int i;
+	for (i=0; argv[i]; i++)
+		kfree(argv[i]);
+}
+
+// Replaces the current executing program with a newly loaded program image
+int sys_execv(const char* path, char** args)
+{
+	char** savedargv, newargv;
+	struct addrspace *as;
+	struct vnode *v;
+	vaddr_t entrypoint, stackptr;
+	int result;
+	
+	/* Copy arguments */
+	int i,j;
+	for(i = 0; args[i]; i++);
+	for(j = 0; j < i; j++){
+		savedargv[j] = kmalloc(strlen(args[j])+1);
+		if(savedargv[j] == NULL){
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return ENOMEM;
+		}
+		result = copyinstr(args[j], savedargv[j], strlen(args[j]+1), NULL);
+		if (result)
+		{
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return result;
+		}
+	}
+	savedargv[j] = NULL;
+
+	/* Open the file. */
+	result = vfs_open(path, O_RDONLY, 0, &v);
+	if (result) {
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	/* We should be a new process. */
+	KASSERT(proc_getas() == NULL);
+
+	/* Create a new address space. */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return ENOMEM;
+	}
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+	/* Load the executable. */
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+		/* p_addrspace will go away when curproc is destroyed */
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	for(j = 0; j < i; j++){
+		newargv[j] = kmalloc(strlen(savedargv[j])+1);
+		if(savedargv[j] == NULL){
+			kfree_all(newargv);
+			kfree(newargv);
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return ENOMEM;
+		}
+		result = copyoutstr(savedargv[j], newargv[j], strlen(savedargv[j]+1), NULL);
+		if (result)
+		{
+			kfree_all(newargv);
+			kfree(newargv);
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return result;
+		}
+	}
+	/* Warp to user mode. */
+	enter_new_process(i, newargv,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
+
+	return EINVAL;
+	
+}
+
 // fork duplicates the currently running process. The two copies are identical, 
 // except that one (the "new" one, or "child"), has a new, unique process id, 
 // and in the other (the "parent") the process id is unchanged.
@@ -563,7 +675,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	exited already, waitpid returns immediately. If that process does not 
 	exist, waitpid fails.
 */
-int sys_waitpid(int pid, int *proc_status, int options, int *retval);
+int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 {
 	//if status argument was an invalid pointer
 	if (proc_status == NULL)
@@ -593,7 +705,7 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval);
 	{
 		if (curproc->child_proc_table[i] && curproc->child_proc_table[i]->pid == pid)
 		{
-			child_proc = curproc->children_procs[i];
+			child_proc = curproc->child_proc_table[i];
 			break;
 		}
 	}
@@ -638,11 +750,11 @@ void sys_exit(int exitcode)
 	struct proc *proc = curproc;
 
 	proc->exit_code = _MKWAIT_EXIT(exitcode);
-	proc->exit_status = 1;
+	proc->proc_is_exit = 1;
 
 	for (int i = PID_MIN; i < PID_MAX; i++)
 	{
-		lock_acquire(proc->children_procs[i]->child_proc_lock);
+		lock_acquire(proc->child_proc_table[i]->child_proc_lock);
 		if (proc->child_proc_table[i])
 		{
 			//lock_release(proc->children_procs[i]->p_exit_lock);
@@ -660,7 +772,7 @@ void sys_exit(int exitcode)
 
 	proc_remthread(curthread);
 
-	wait_for_parent_process_to_exit(proc);
+	//wait_for_parent_process_to_exit(proc);
 
 	lock_acquire(process_table_lock);	
 	process_table[proc->pid]= NULL;
@@ -671,12 +783,11 @@ void sys_exit(int exitcode)
 	thread_exit();
 }
 
-void
-wait_for_parent_process_to_exit(struct proc *proc)
-{
-	lock_acquire(proc->proc_exit_lock);
-	lock_release(proc->proc_exit_lock);
-}
+// void wait_for_parent_process_to_exit(struct proc *proc)
+// {
+// 	lock_acquire(proc->proc_exit_lock);
+// 	lock_release(proc->proc_exit_lock);
+// }
 
 void decrement_vnode_reference(void)
 {
