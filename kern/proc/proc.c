@@ -57,9 +57,6 @@
  */
 struct proc *kproc;
 
-// Map of process ID availability
-char proc_table[__PID_MAX];
-
 /*
  * Create a proc structure.
  */
@@ -68,8 +65,7 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-	pid_t new_pid;
-
+	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -92,9 +88,9 @@ proc_create(const char *name)
 	int i;
 	int found = 0;
 	for(i = __PID_MIN; i < __PID_MAX; i++){
-		if(proc_table[i] == 0){
-			new_pid = (pid_t)i;
-			proc_table[i] = 1;
+		if (!process_table[i]){
+			proc->pid = (pid_t)i;
+			process_table[i] = proc;
 			found = 1;
 			break;
 		}
@@ -102,7 +98,6 @@ proc_create(const char *name)
 	if(!found){
 		panic("No free process ID numbers");
 	}
-	proc->pid = new_pid;
 
 	proc->parent_proc = NULL;
 
@@ -211,11 +206,13 @@ proc_destroy(struct proc *proc)
 	{
 		//lock_destroy(proc->child_proc_table[i]->child_proc_lock);
 		if(proc->child_proc_table[i] != NULL){
+			lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
+			cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
 			kfree(proc->child_proc_table[i]);
 		}
 	}
 	
-	proc_table[(int)(proc->pid)] = 0;
+	process_table[(int)(proc->pid)] = NULL;
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
@@ -271,6 +268,9 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+	newproc->proc_exit_lock = lock_create("process exit lock");
+	newproc->proc_wait_lock = lock_create("process wait lock");
+	newproc->proc_wait_cv = cv_create("process wait cv");
 
 	return newproc;
 }

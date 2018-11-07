@@ -123,6 +123,7 @@ common_prog(int nargs, char **args)
 
 	/* Create a process for the new program to run in. */
 	proc = proc_create_runprogram(args[0] /* name */);
+
 	if (proc == NULL) {
 		return ENOMEM;
 	}
@@ -139,7 +140,6 @@ common_prog(int nargs, char **args)
 	pid_t pid = proc->pid;
 	int status;
 	result = sys_waitpid(pid, &status, 0, &result);
-	kprintf("waitpid result %d\n", result);
 	
 	/*
 	 * The new process will be destroyed when the program exits...

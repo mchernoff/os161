@@ -708,8 +708,9 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	struct proc *child_proc;
 	//kprintf("sys_waitpid marker 222222222222 \n");
 	//find the child process that specified by pid to exit from current process 
-	lock_acquire(curproc->child_proc_lock);	
-	for(int i = 0; i < PID_MAX; i++)
+	/*lock_acquire(curproc->child_proc_lock);	
+	int i;
+	for(i = 0; i < PID_MAX; i++)
 	{
 		if (curproc->child_proc_table[i] && curproc->child_proc_table[i]->pid == pid)
 		{
@@ -717,7 +718,15 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 			break;
 		}
 	}
-	lock_release(curproc->child_proc_lock);
+	lock_release(curproc->child_proc_lock);*/
+	int i;
+	for(i = 0; i < PID_MAX; i++)
+	{
+		if (process_table[i] != NULL && process_table[i]->pid == pid){
+			child_proc = process_table[i];
+			break;
+		}
+	}
 	//kprintf("sys_waitpid marker 333333333333 \n");
 	// check if pid argument named a process that was not a child of the current process
 	// only the parent can wait for the child process
@@ -725,16 +734,11 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	{
 		return ECHILD;
 	}
-	child_proc->proc_wait_lock = lock_create("");
-	child_proc->proc_wait_cv = cv_create("");
 
 	//Wait for the process specified by pid to exit
 	lock_acquire(child_proc->proc_wait_lock);
 	while (child_proc->proc_is_exit == 0)
 	{
-		if(curproc->pid == 3){
-			kprintf("waiting on cv %x\n", (int)child_proc->proc_wait_cv);
-		}
 		cv_wait(child_proc->proc_wait_cv, child_proc->proc_wait_lock);
 	}
 	lock_release(child_proc->proc_wait_lock);
@@ -776,7 +780,6 @@ void sys_exit(int exitcode)
 	}
 	
 	//kprintf("sys_exit marker 33333333333 \n");
-	kprintf("broadcasting cv %x\n", (int)proc->proc_wait_cv);
 	cv_broadcast(proc->proc_wait_cv, proc->proc_wait_lock);
 	//kprintf("sys_exit marker 44444444444 \n");
 
@@ -787,6 +790,7 @@ void sys_exit(int exitcode)
 	proc_remthread(curthread);
 
 	wait_for_parent_process_to_exit(proc);
+	
 	//kprintf("sys_exit marker 66666666666 \n");
 
 	lock_acquire(process_table_lock);	
