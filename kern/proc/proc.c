@@ -52,15 +52,13 @@
 #include <limits.h>
 #include <synch.h>
 
-#define PID_RANGE __PID_MAX - __PID_MIN
-
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
 
 // Map of process ID availability
-char proc_table[PID_RANGE];
+char proc_table[__PID_MAX];
 
 /*
  * Create a proc structure.
@@ -93,12 +91,10 @@ proc_create(const char *name)
 	
 	int i;
 	int found = 0;
-	int index;
 	for(i = __PID_MIN; i < __PID_MAX; i++){
-		index = i - __PID_MIN;
-		if(proc_table[index] == 0){
+		if(proc_table[i] == 0){
 			new_pid = (pid_t)i;
-			proc_table[index] = 1;
+			proc_table[i] = 1;
 			found = 1;
 			break;
 		}
@@ -219,7 +215,7 @@ proc_destroy(struct proc *proc)
 		}
 	}
 	
-	proc_table[(int)(proc->pid) - __PID_MIN] = 0;
+	proc_table[(int)(proc->pid)] = 0;
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);

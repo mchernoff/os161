@@ -410,117 +410,120 @@ int sys_getpid(int* retval)
 	return 0;
 }
 
-// static 
-// void 
-// kfree_all(char *argv[])
-// {
-// 	int i;
-// 	for (i=0; argv[i]; i++)
-// 		kfree(argv[i]);
-// }
-// 
-// Replaces the current executing program with a newly loaded program image
-// int sys_execv(const char* path, char** args)
-// {
-// 	char** savedargv, newargv;
-// 	struct addrspace *as;
-// 	struct vnode *v;
-// 	vaddr_t entrypoint, stackptr;
-// 	int result;
+//Frees a string array
+static void kfree_all(char *argv[])
+{
+	int i;
+	for (i=0; argv[i]; i++)
+		kfree(argv[i]);
+}
+//Replaces the current executing program with a newly loaded program image
+int sys_execv(char* path, char* args[])
+{
+	vaddr_t cpaddr;
+	char **savedargv;
+	struct addrspace *as;
+	struct vnode *v;
+	vaddr_t entrypoint, stackptr;
+	int result;
+	int i,j;
+	int length;
+	size_t actual_size;
 	
-// 	/* Copy arguments */
-// 	int i,j;
-// 	for(i = 0; args[i]; i++);
-// 	for(j = 0; j < i; j++){
-// 		savedargv[j] = kmalloc(strlen(args[j])+1);
-// 		if(savedargv[j] == NULL){
-// 			kfree_all(savedargv);
-// 			kfree(savedargv);
-// 			return ENOMEM;
-// 		}
-// 		result = copyinstr(args[j], savedargv[j], strlen(args[j]+1), NULL);
-// 		if (result)
-// 		{
-// 			kfree_all(savedargv);
-// 			kfree(savedargv);
-// 			return result;
-// 		}
-// 	}
-// 	savedargv[j] = NULL;
-
-// 	/* Open the file. */
-// 	result = vfs_open(path, O_RDONLY, 0, &v);
-// 	if (result) {
-// 		kfree_all(savedargv);
-// 		kfree(savedargv);
-// 		return result;
-// 	}
-
-// 	/* We should be a new process. */
-// 	KASSERT(proc_getas() == NULL);
-
-// 	/* Create a new address space. */
-// 	as = as_create();
-// 	if (as == NULL) {
-// 		vfs_close(v);
-// 		kfree_all(savedargv);
-// 		kfree(savedargv);
-// 		return ENOMEM;
-// 	}
-
-// 	/* Switch to it and activate it. */
-// 	proc_setas(as);
-// 	as_activate();
-
-// 	/* Load the executable. */
-// 	result = load_elf(v, &entrypoint);
-// 	if (result) {
-// 		/* p_addrspace will go away when curproc is destroyed */
-// 		vfs_close(v);
-// 		kfree_all(savedargv);
-// 		kfree(savedargv);
-// 		return result;
-// 	}
-
-// 	/* Done with the file now. */
-// 	vfs_close(v);
-
-// 	/* Define the user stack in the address space */
-// 	result = as_define_stack(as, &stackptr);
-// 	if (result) {
-// 		/* p_addrspace will go away when curproc is destroyed */
-// 		kfree_all(savedargv);
-// 		kfree(savedargv);
-// 		return result;
-// 	}
-
-// 	for(j = 0; j < i; j++){
-// 		newargv[j] = kmalloc(strlen(savedargv[j])+1);
-// 		if(savedargv[j] == NULL){
-// 			kfree_all(newargv);
-// 			kfree(newargv);
-// 			kfree_all(savedargv);
-// 			kfree(savedargv);
-// 			return ENOMEM;
-// 		}
-// 		result = copyoutstr(savedargv[j], newargv[j], strlen(savedargv[j]+1), NULL);
-// 		if (result)
-// 		{
-// 			kfree_all(newargv);
-// 			kfree(newargv);
-// 			kfree_all(savedargv);
-// 			kfree(savedargv);
-// 			return result;
-// 		}
-// 	}
-// 	/* Warp to user mode. */
-// 	enter_new_process(i, newargv,
-// 			  NULL /*userspace addr of environment*/,
-// 			  stackptr, entrypoint);
-
-// 	return EINVAL;
+	//Copy arguments
+	for(i = 0; args[i]; i++);
 	
-// }
+	savedargv = (char **) kmalloc(sizeof(char **) * i);
+	for(j = 0; j < i; j++){
+		length = strlen(args[j]);
+		length++;
+		savedargv[j] = (char*)kmalloc(length+1);
+		if(savedargv[j] == NULL){
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return ENOMEM;
+		}
+		copyinstr((userptr_t)args[j],savedargv[j],length,&actual_size);
+	}
+	KASSERT(args[j] == NULL);
+	savedargv[j] = NULL;
+
+	//Open the file.
+	result = vfs_open(path, O_RDONLY, 0, &v);
+	if (result) {
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	//Create a new address space.
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return ENOMEM;
+	}
+
+	//Switch to it and activate it.
+	proc_setas(as);
+	as_activate();
+
+	//Load the executable.
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		//p_addrspace will go away when curproc is destroyed
+		vfs_close(v);
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	//Done with the file now.
+	vfs_close(v);
+
+	//Define the user stack in the address space
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+		//p_addrspace will go away when curproc is destroyed
+		kfree_all(savedargv);
+		kfree(savedargv);
+		return result;
+	}
+
+	cpaddr = stackptr;
+	int tail;
+	for(j = 0; j < i; j++){
+		length = strlen(savedargv[j])+1;
+		cpaddr -= length;
+		kprintf("j %s\n", savedargv[j]);
+		tail = 0;
+		if (cpaddr & 0x3)
+		{
+			tail = cpaddr & 0x3;
+			cpaddr -= tail;
+		}
+		result = copyoutstr(savedargv[j], (userptr_t)cpaddr, length, &actual_size);
+		kprintf("%s\n", (char*)cpaddr);
+		if (result)
+		{
+			kprintf("bad result %d\n", result);
+			kfree_all(savedargv);
+			kfree(savedargv);
+			return result;
+		}
+	}
+	cpaddr -= 4;
+	kfree_all(savedargv);
+	kfree(savedargv);
+	/* Warp to user mode. */
+	enter_new_process(i, (userptr_t)cpaddr,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
+
+	return EINVAL;
+	
+}
 
 // fork duplicates the currently running process. The two copies are identical, 
 // except that one (the "new" one, or "child"), has a new, unique process id, 
@@ -657,7 +660,6 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	//kprintf("after forking\n");
 	//child_proc->p_addrspace = child_proc_ads;
 	if (result) {
-	//kprintf("Mattinif\n");
 		kfree(child_proc_tf);
 		as_destroy(child_proc_ads);
 		decrement_vnode_reference();
@@ -723,12 +725,16 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	{
 		return ECHILD;
 	}
+	child_proc->proc_wait_lock = lock_create("");
+	child_proc->proc_wait_cv = cv_create("");
 
 	//Wait for the process specified by pid to exit
 	lock_acquire(child_proc->proc_wait_lock);
-	//kprintf("sys_waitpid marker 44444444444 \n");
 	while (child_proc->proc_is_exit == 0)
 	{
+		if(curproc->pid == 3){
+			kprintf("waiting on cv %x\n", (int)child_proc->proc_wait_cv);
+		}
 		cv_wait(child_proc->proc_wait_cv, child_proc->proc_wait_lock);
 	}
 	lock_release(child_proc->proc_wait_lock);
@@ -756,7 +762,6 @@ void sys_exit(int exitcode)
 {
 	struct proc *proc = curproc;
 
-	//kprintf("sys_exit marker 111111111 \n");
 	proc->exit_code = _MKWAIT_EXIT(exitcode);
 	proc->proc_is_exit = 1;
 	//kprintf("sys_exit marker 222222222 \n");
@@ -769,7 +774,9 @@ void sys_exit(int exitcode)
 			proc->child_proc_table[i] = NULL;
 		}
 	}
+	
 	//kprintf("sys_exit marker 33333333333 \n");
+	kprintf("broadcasting cv %x\n", (int)proc->proc_wait_cv);
 	cv_broadcast(proc->proc_wait_cv, proc->proc_wait_lock);
 	//kprintf("sys_exit marker 44444444444 \n");
 
