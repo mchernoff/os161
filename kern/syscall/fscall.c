@@ -164,10 +164,8 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 	curproc->p_fd[fd]->offset = uio.uio_offset;
 	kfree(buffer);
 	*retval = nbytes - uio.uio_resid;
+	
 	lock_release(curproc->p_fd[fd]->file_lock);
-	int pos = *retval;
-	off_t lseekret;
-	sys_lseek(fd, pos, SEEK_CUR, &lseekret);
 
 	return 0;
 }
@@ -214,10 +212,10 @@ sys_read(int fd, void *buf, size_t buflen, int* retval)
 
 	kfree(buffer);
 	*retval = buflen - uio.uio_resid;
-	off_t lseekret;
-	int pos = *retval;
+	
+	curproc->p_fd[fd]->offset = uio.uio_offset;
+	
 	lock_release(curproc->p_fd[fd]->file_lock);
-	sys_lseek(fd, pos, SEEK_CUR, &lseekret);
 
 	return 0;
 }
@@ -683,7 +681,6 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	//as_activate(child_proc_ads);
 	//result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, 1);
 	result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, (unsigned long)child_proc_ads);
-	
 	//kprintf("after forking\n");
 	//child_proc->p_addrspace = child_proc_ads;
 	if (result) {
@@ -698,7 +695,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	}
 
 	*retval = child_proc->pid;
-	//kfree(child_proc_tf);
+	
 	// Child returns with 0
 	return 0;
 }
@@ -775,8 +772,6 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 		return 1;
 	}
 	*retval = pid;
-
-	//cv_destroy(child_proc->proc_wait_cv);
 	return 0;
 }
 
