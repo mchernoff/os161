@@ -208,8 +208,7 @@ proc_destroy(struct proc *proc)
 	{
 		//lock_acquire(proc->p_fd[i]->file_lock);
 
-		if (proc->p_fd[i] != NULL &&
-			proc->p_fd[i]->vnode_reference == 1)
+		if (proc->p_fd[i] != NULL)
 		{
 			vfs_close(proc->p_fd[i]->fvnode);
 			lock_destroy(proc->p_fd[i]->file_lock);		
@@ -222,36 +221,38 @@ proc_destroy(struct proc *proc)
 
 	}
 	
-	//for (int i = PID_MIN; i < PID_MAX; i++)
-	//{
-		// lock_destroy(proc->child_proc_table[i]->child_proc_lock);
-		// if(proc->child_proc_table[i] != NULL)
-		// {
-		// 	lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
-		// 	cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
-		// 	lock_destroy(proc->proc_exit_lock);
-		// 	kfree(proc->child_proc_table[i]);
-		// }
-	//}
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		
+		if(proc->child_proc_table[i] != NULL)
+		{
+			lock_destroy(proc->child_proc_table[i]->child_proc_lock);
+			lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
+			cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
+			lock_destroy(proc->proc_exit_lock);
+			kfree(proc->child_proc_table[i]);
+			proc->child_proc_table[i] = NULL;
+		}
+	}
 
 	process_table[(int)(proc->pid)] = NULL;
 
-	for(int i = 0; i <= OPEN_MAX; i++)
-	{
-		if(proc->p_fd[i] != NULL)
-		{
-			lock_destroy(proc->p_fd[i]->file_lock);
-		}
-		//kprintf("if statement done");
-	}
-
-	threadarray_cleanup(&proc->p_threads);
-	spinlock_cleanup(&proc->p_lock);
+	// for(int i = 0; i <= OPEN_MAX; i++)
+	// {
+	// 	if(proc->p_fd[i] != NULL)
+	// 	{
+	// 		lock_destroy(proc->p_fd[i]->file_lock);
+	// 	}
+	// 	//kprintf("if statement done");
+	// }
 
 	lock_destroy(proc->child_proc_lock);
 	lock_destroy(proc->proc_wait_lock);
 	cv_destroy(proc->proc_wait_cv);
 	lock_destroy(proc->proc_exit_lock);
+
+	threadarray_cleanup(&proc->p_threads);
+	spinlock_cleanup(&proc->p_lock);
 
 	kfree(proc->p_name);
 	kfree(proc);
