@@ -165,6 +165,9 @@ int sys_write(int fd, const void *buf, size_t nbytes, int *retval)
 	kfree(buffer);
 	*retval = nbytes - uio.uio_resid;
 	lock_release(curproc->p_fd[fd]->file_lock);
+	int pos = *retval;
+	off_t lseekret;
+	sys_lseek(fd, pos, SEEK_CUR, &lseekret);
 
 	return 0;
 }
@@ -193,7 +196,7 @@ sys_read(int fd, void *buf, size_t buflen, int* retval)
 	}
 
 	lock_acquire(curproc->p_fd[fd]->file_lock);		//acquire the lock to the file
-
+	
 	struct uio uio;				//used to manage blocks of data moved around by the kernel
 	struct iovec iovec;			//read I/O calls	
 
@@ -211,7 +214,10 @@ sys_read(int fd, void *buf, size_t buflen, int* retval)
 
 	kfree(buffer);
 	*retval = buflen - uio.uio_resid;
+	off_t lseekret;
+	int pos = *retval;
 	lock_release(curproc->p_fd[fd]->file_lock);
+	sys_lseek(fd, pos, SEEK_CUR, &lseekret);
 
 	return 0;
 }
