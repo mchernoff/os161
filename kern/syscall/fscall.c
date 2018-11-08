@@ -712,7 +712,6 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 {
 	//if status argument was an invalid pointer
-	//kprintf("sys_waitpid marker 111111111 \n");
 	if (proc_status == NULL)
 	{
 		return EFAULT;
@@ -733,7 +732,6 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	}
 
 	struct proc *child_proc;
-	//kprintf("sys_waitpid marker 222222222222 \n");
 	//find the child process that specified by pid to exit from current process 
 	/*lock_acquire(curproc->child_proc_lock);	
 	int i;
@@ -754,7 +752,6 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 			break;
 		}
 	}
-	//kprintf("sys_waitpid marker 333333333333 \n");
 	// check if pid argument named a process that was not a child of the current process
 	// only the parent can wait for the child process
 	if(child_proc == NULL)
@@ -769,7 +766,6 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 		cv_wait(child_proc->proc_wait_cv, child_proc->proc_wait_lock);
 	}
 	lock_release(child_proc->proc_wait_lock);
-	//kprintf("sys_waitpid marker 555555555555 \n");
 	//return an encoded exit status in the integer pointed to by status
 	int result = copyout((void *)(&(child_proc->exit_code)), (userptr_t)proc_status, sizeof(int));
 	memcpy(retval, &pid, sizeof(int));
@@ -778,7 +774,6 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	{
 		return 1;
 	}
-	//kprintf("sys_waitpid marker 66666666666 \n");
 	*retval = pid;
 
 	//cv_destroy(child_proc->proc_wait_cv);
@@ -797,7 +792,6 @@ void sys_exit(int exitcode)
 
 	proc->exit_code = _MKWAIT_EXIT(exitcode);
 	proc->proc_is_exit = 1;
-	//kprintf("sys_exit marker 222222222 \n");
 
 	for (int i = PID_MIN; i < PID_MAX; i++)
 	{
@@ -808,25 +802,21 @@ void sys_exit(int exitcode)
 		}
 	}
 	
-	//kprintf("sys_exit marker 33333333333 \n");
 	cv_broadcast(proc->proc_wait_cv, proc->proc_wait_lock);
-	//kprintf("sys_exit marker 44444444444 \n");
 
 	as_deactivate();
 	struct addrspace *as = proc_setas(NULL);
 	as_destroy(as);
-	//kprintf("sys_exit marker 5555555555 \n");
+
 	proc_remthread(curthread);
 
 	wait_for_parent_process_to_exit(proc);
 	
-	//kprintf("sys_exit marker 66666666666 \n");
 
 	lock_acquire(process_table_lock);	
 	process_table[proc->pid]= NULL;
 	lock_release(process_table_lock);	
 
-	//kprintf("sys_exit marker 7777777777 \n");
 	//lock_destroy(proc->proc_exit_lock);
 	//lock_destroy(proc->proc_wait_lock);
 	//lock_destroy(proc->child_proc_lock);
@@ -842,7 +832,6 @@ void sys_exit(int exitcode)
 	//kfree(tf);
 	//cv_destroy(proc->proc_wait_cv);
 	proc_destroy(proc);
-	//kprintf("sys_exit marker 888888888 \n");
 
 	spec_thread_exit();
 }
