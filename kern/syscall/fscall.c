@@ -411,118 +411,137 @@ int sys_getpid(int* retval)
 }
 
 //Frees a string array
-static void kfree_all(char *argv[])
+/*static void kfree_all(char *argv[])
 {
 	int i;
 	for (i=0; argv[i]; i++)
 		kfree(argv[i]);
-}
+}*/
 //Replaces the current executing program with a newly loaded program image
 int sys_execv(char* path, char* args[])
 {
-	vaddr_t cpaddr;
-	char **savedargv;
 	struct addrspace *as;
 	struct vnode *v;
+	int result, argc;
+	int *length;
+	size_t buflen;
+	int i = 0;
 	vaddr_t entrypoint, stackptr;
-	int result;
-	int i,j;
-	int length;
-	size_t actual_size;
+	char *progname = (char*)kmalloc(PATH_MAX); 
+	copyinstr((userptr_t)path,progname,PATH_MAX,&buflen);
+	char **argv= (char **)kmalloc(sizeof(char*));
 	
-	//Copy arguments
-	for(i = 0; args[i]; i++);
-	
-	savedargv = (char **) kmalloc(sizeof(char **) * i);
-	for(j = 0; j < i; j++){
-		length = strlen(args[j]);
-		length++;
-		savedargv[j] = (char*)kmalloc(length+1);
-		if(savedargv[j] == NULL){
-			kfree_all(savedargv);
-			kfree(savedargv);
-			return ENOMEM;
-		}
-		copyinstr((userptr_t)args[j],savedargv[j],length,&actual_size);
-	}
-	KASSERT(args[j] == NULL);
-	savedargv[j] = NULL;
+    if(progname == NULL){
+		return ENOMEM;
+    }
 
-	//Open the file.
-	result = vfs_open(path, O_RDONLY, 0, &v);
+    while (args[i]!=NULL){
+		i++;
+    }
+    argc = i;
+	//Too many arguments
+	if(argc > ARG_MAX){
+		return E2BIG;
+	}
+	length = kmalloc(sizeof(int)*argc);
+
+    if(argv == NULL){
+		kfree(progname);
+		return ENOMEM;
+    }
+    
+
+    for (i=0; i<argc; i++){
+        length[i] = strlen(args[i]);
+        length[i]=length[i]+1;
+    }
+    for (i=0; i<=argc; i++){
+		if(i<argc){  
+			argv[i]=(char*)kmalloc(length[i]+1);
+			if(argv[i]==NULL) {
+				return ENOMEM;
+			}
+            copyinstr((userptr_t)args[i], argv[i], length[i], &buflen);
+		}
+		else{
+			argv[i] = NULL;
+		}
+	}
+
+
+	int arglength[argc];
+	int arg_pointer[argc];
+	int offset=0;
+
+	int count;
+	for(count = argc-1; count >= 0; count--) {
+		arglength[count] = strlen(argv[count])+1;
+	}
+
+	/* Open the file. */
+	result = vfs_open(progname, O_RDONLY, 0, &v);
 	if (result) {
-		kfree_all(savedargv);
-		kfree(savedargv);
 		return result;
 	}
 
-	//Create a new address space.
+	/* Create new address space */
 	as = as_create();
 	if (as == NULL) {
 		vfs_close(v);
-		kfree_all(savedargv);
-		kfree(savedargv);
 		return ENOMEM;
 	}
 
-	//Switch to it and activate it.
+	/* Switch to it and activate it. */
 	proc_setas(as);
 	as_activate();
 
-	//Load the executable.
+    /* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
-		//p_addrspace will go away when curproc is destroyed
+		/* thread_exit destroys curthread->t_vmspace */
 		vfs_close(v);
-		kfree_all(savedargv);
-		kfree(savedargv);
 		return result;
 	}
 
-	//Done with the file now.
+	/* Done with the file now. */
 	vfs_close(v);
 
-	//Define the user stack in the address space
+  /* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
-		//p_addrspace will go away when curproc is destroyed
-		kfree_all(savedargv);
-		kfree(savedargv);
+	/* thread_exit destroys curthread->t_vmspace */
 		return result;
 	}
 
-	cpaddr = stackptr;
-	int tail;
-	for(j = 0; j < i; j++){
-		length = strlen(savedargv[j])+1;
-		cpaddr -= length;
-		kprintf("j %s\n", savedargv[j]);
-		tail = 0;
-		if (cpaddr & 0x3)
-		{
-			tail = cpaddr & 0x3;
-			cpaddr -= tail;
-		}
-		result = copyoutstr(savedargv[j], (userptr_t)cpaddr, length, &actual_size);
-		kprintf("%s\n", (char*)cpaddr);
-		if (result)
-		{
-			kprintf("bad result %d\n", result);
-			kfree_all(savedargv);
-			kfree(savedargv);
-			return result;
-		}
+  
+  
+    for(i = argc-1; i >= 0; i--) {
+		offset=(arglength[i] + (4-(arglength[i]%4)));
+		stackptr = stackptr - offset;
+		copyoutstr(argv[i], (userptr_t)stackptr, (size_t)arglength[i], &buflen);
+		arg_pointer[i] = stackptr;
 	}
-	cpaddr -= 4;
-	kfree_all(savedargv);
-	kfree(savedargv);
-	/* Warp to user mode. */
-	enter_new_process(i, (userptr_t)cpaddr,
+
+
+	arg_pointer[argc] = (int)NULL;
+	i = argc;
+	while(i>=0){
+		stackptr = stackptr - 4;
+		copyout(&arg_pointer[i] ,(userptr_t)stackptr, sizeof(arg_pointer[i]));
+		i--;
+	}
+
+
+
+	kfree(argv);
+	kfree(progname);
+	// Warp to user mode.
+
+	enter_new_process(argc, (userptr_t)stackptr,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
-
+	panic("enter_new_process should not return\n");
 	return EINVAL;
-	
 }
 
 // fork duplicates the currently running process. The two copies are identical, 
