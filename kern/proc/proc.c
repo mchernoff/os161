@@ -231,7 +231,7 @@ proc_destroy(struct proc *proc)
 			cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
 			lock_destroy(proc->proc_exit_lock);
 			kfree(proc->child_proc_table[i]);
-			proc->child_proc_table[i] = NULL;
+			//proc->child_proc_table[i] = NULL;
 		}
 	}
 
@@ -246,6 +246,7 @@ proc_destroy(struct proc *proc)
 	// 	//kprintf("if statement done");
 	// }
 
+	
 	lock_destroy(proc->child_proc_lock);
 	lock_destroy(proc->proc_wait_lock);
 	cv_destroy(proc->proc_wait_cv);
