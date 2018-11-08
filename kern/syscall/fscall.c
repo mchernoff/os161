@@ -683,6 +683,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	//as_activate(child_proc_ads);
 	//result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, 1);
 	result = thread_fork(curthread->t_name, child_proc, &enter_forked_process, child_proc_tf, (unsigned long)child_proc_ads);
+	
 	//kprintf("after forking\n");
 	//child_proc->p_addrspace = child_proc_ads;
 	if (result) {
@@ -697,7 +698,7 @@ int sys_fork(struct trapframe *p_tf, int* retval)
 	}
 
 	*retval = child_proc->pid;
-	
+	//kfree(child_proc_tf);
 	// Child returns with 0
 	return 0;
 }
@@ -779,6 +780,8 @@ int sys_waitpid(int pid, int *proc_status, int options, int *retval)
 	}
 	//kprintf("sys_waitpid marker 66666666666 \n");
 	*retval = pid;
+
+	//cv_destroy(child_proc->proc_wait_cv);
 	return 0;
 }
 
