@@ -821,18 +821,18 @@ void sys_exit(int exitcode)
 	lock_release(process_table_lock);	
 
 	//kprintf("sys_exit marker 7777777777 \n");
-	lock_destroy(proc->proc_exit_lock);
+	//lock_destroy(proc->proc_exit_lock);
 	//lock_destroy(proc->proc_wait_lock);
-	lock_destroy(proc->child_proc_lock);
+	//lock_destroy(proc->child_proc_lock);
 
-	for(int i = 0; i <= OPEN_MAX; i++)
-	{
-		if(proc->p_fd[i] != NULL)
-		{
-			lock_destroy(proc->p_fd[i]->file_lock);
-		}
-		//kprintf("if statement done");
-	}
+	// for(int i = 0; i <= OPEN_MAX; i++)
+	// {
+	// 	if(proc->p_fd[i] != NULL)
+	// 	{
+	// 		lock_destroy(proc->p_fd[i]->file_lock);
+	// 	}
+	// 	//kprintf("if statement done");
+	// }
 	//kfree(tf);
 	//cv_destroy(proc->proc_wait_cv);
 	proc_destroy(proc);

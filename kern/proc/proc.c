@@ -51,6 +51,7 @@
 #include <file.h>
 #include <limits.h>
 #include <synch.h>
+#include <vfs.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -202,20 +203,55 @@ proc_destroy(struct proc *proc)
 		}
 		as_destroy(as);
 	}
-	for (int i = PID_MIN; i < PID_MAX; i++)
+
+	for (int i = 0; i < PID_MAX; i++)
 	{
-		//lock_destroy(proc->child_proc_table[i]->child_proc_lock);
-		if(proc->child_proc_table[i] != NULL){
-			lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
-			cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
-			kfree(proc->child_proc_table[i]);
+		//lock_acquire(proc->p_fd[i]->file_lock);
+
+		if (proc->p_fd[i] != NULL &&
+			proc->p_fd[i]->vnode_reference == 1)
+		{
+			vfs_close(proc->p_fd[i]->fvnode);
+			lock_destroy(proc->p_fd[i]->file_lock);		
+			proc->p_fd[i]->file_lock = NULL;
+			kfree(proc->p_fd[i]);
+			proc->p_fd[i] = NULL;
 		}
+
+		//lock_release(proc->p_fd[i]->file_lock);
+
 	}
 	
+	//for (int i = PID_MIN; i < PID_MAX; i++)
+	//{
+		// lock_destroy(proc->child_proc_table[i]->child_proc_lock);
+		// if(proc->child_proc_table[i] != NULL)
+		// {
+		// 	lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
+		// 	cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
+		// 	lock_destroy(proc->proc_exit_lock);
+		// 	kfree(proc->child_proc_table[i]);
+		// }
+	//}
+
 	process_table[(int)(proc->pid)] = NULL;
+
+	for(int i = 0; i <= OPEN_MAX; i++)
+	{
+		if(proc->p_fd[i] != NULL)
+		{
+			lock_destroy(proc->p_fd[i]->file_lock);
+		}
+		//kprintf("if statement done");
+	}
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
+
+	lock_destroy(proc->child_proc_lock);
+	lock_destroy(proc->proc_wait_lock);
+	cv_destroy(proc->proc_wait_cv);
+	lock_destroy(proc->proc_exit_lock);
 
 	kfree(proc->p_name);
 	kfree(proc);
