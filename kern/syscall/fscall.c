@@ -415,12 +415,12 @@ int sys_getpid(int* retval)
 }
 
 //Frees a string array
-/*static void kfree_all(char *argv[])
+static void kfree_all(char *argv[])
 {
 	int i;
 	for (i=0; argv[i]; i++)
 		kfree(argv[i]);
-}*/
+}
 //Replaces the current executing program with a newly loaded program image
 int sys_execv(char* path, char* args[])
 {
@@ -436,6 +436,8 @@ int sys_execv(char* path, char* args[])
 	char **argv= (char **)kmalloc(sizeof(char*));
 	
     if(progname == NULL){
+		kfree(argv);
+		kfree(progname);
 		return ENOMEM;
     }
 
@@ -444,12 +446,16 @@ int sys_execv(char* path, char* args[])
     }
     argc = i;
 	//Too many arguments
-	if(argc > ARG_MAX){
+	if(argc > ARG_MAX){	
+		kfree(argv);
+		kfree(progname);
 		return E2BIG;
 	}
 	length = kmalloc(sizeof(int)*argc);
 
     if(argv == NULL){
+		kfree(length);
+		kfree(argv);
 		kfree(progname);
 		return ENOMEM;
     }
@@ -463,6 +469,11 @@ int sys_execv(char* path, char* args[])
 		if(i<argc){  
 			argv[i]=(char*)kmalloc(length[i]+1);
 			if(argv[i]==NULL) {
+				
+				kfree(length);
+				kfree_all(argv);
+				kfree(argv);
+				kfree(progname);
 				return ENOMEM;
 			}
             copyinstr((userptr_t)args[i], argv[i], length[i], &buflen);
@@ -486,6 +497,11 @@ int sys_execv(char* path, char* args[])
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);
 	if (result) {
+		
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
 		return result;
 	}
 
@@ -493,6 +509,11 @@ int sys_execv(char* path, char* args[])
 	as = as_create();
 	if (as == NULL) {
 		vfs_close(v);
+		
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
 		return ENOMEM;
 	}
 
@@ -505,6 +526,10 @@ int sys_execv(char* path, char* args[])
 	if (result) {
 		/* thread_exit destroys curthread->t_vmspace */
 		vfs_close(v);
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
 		return result;
 	}
 
@@ -515,11 +540,16 @@ int sys_execv(char* path, char* args[])
 	result = as_define_stack(as, &stackptr);
 	if (result) {
 	/* thread_exit destroys curthread->t_vmspace */
+	
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
 		return result;
 	}
 
   
-  
+    //push arguments onto stack
     for(i = argc-1; i >= 0; i--) {
 		offset=(arglength[i] + (4-(arglength[i]%4)));
 		stackptr = stackptr - offset;
@@ -527,7 +557,7 @@ int sys_execv(char* path, char* args[])
 		arg_pointer[i] = stackptr;
 	}
 
-
+	//allocate memory in stack;
 	arg_pointer[argc] = (int)NULL;
 	i = argc;
 	while(i>=0){
@@ -535,9 +565,9 @@ int sys_execv(char* path, char* args[])
 		copyout(&arg_pointer[i] ,(userptr_t)stackptr, sizeof(arg_pointer[i]));
 		i--;
 	}
-
-
-
+	
+	kfree(length);
+	kfree_all(argv);
 	kfree(argv);
 	kfree(progname);
 	// Warp to user mode.
