@@ -18,4 +18,5 @@ syscall.o: ../../arch/mips/syscall/syscall.c ../../include/types.h \
  ../../include/uio.h ../../include/kern/iovec.h \
  ../../include/kern/fcntl.h ../../include/vnode.h ../../include/file.h \
  ../../include/copyinout.h ../../include/stat.h ../../include/kern/stat.h \
- ../../include/kern/stattypes.h ../../include/kern/seek.h
+ ../../include/kern/stattypes.h ../../include/kern/seek.h \
+ ../../include/addrspace.h opt-dumbvm.h ../../include/kern/wait.h

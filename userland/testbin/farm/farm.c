@@ -80,6 +80,7 @@ waitall(void)
 		else if (WEXITSTATUS(status) != 0) {
 			warnx("pid %d: exit %d", pids[i], WEXITSTATUS(status));
 		}
+		//warnx("farm array at position %d", i);
 	}
 }
 

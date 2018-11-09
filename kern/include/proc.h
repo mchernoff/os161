@@ -58,7 +58,33 @@ struct proc {
 	struct filetable *p_filetable;	/* table of open files */
 
 	/* add more material here as needed */
+<<<<<<< HEAD
+=======
+	pid_t pid;					/* Process ID */
+
+	//define a file table with OPEN_MAX entries 
+	//each entries should have a lock as well
+	struct file_descriptor *p_fd[OPEN_MAX];		
+
+	//child process table 
+	struct proc *child_proc_table[PID_MAX]; 
+	struct lock *child_proc_lock;
+
+	struct proc *parent_proc;
+
+	// locks in waitpid for wait proc with pid to finish
+	struct lock *proc_wait_lock;
+	struct cv *proc_wait_cv;
+
+	int proc_is_exit;				// 0 if not exit, 1 if already exit
+	int exit_code;
+
+	struct lock *proc_exit_lock;
+>>>>>>> asst4-soln
 };
+
+struct proc *process_table[PID_MAX];
+struct lock *process_table_lock;
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
@@ -86,6 +112,5 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
-
 
 #endif /* _PROC_H_ */

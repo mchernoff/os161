@@ -49,7 +49,14 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+<<<<<<< HEAD
 #include <filetable.h>
+=======
+#include <file.h>
+#include <limits.h>
+#include <synch.h>
+#include <vfs.h>
+>>>>>>> asst4-soln
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -64,7 +71,7 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-
+	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -83,7 +90,45 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+<<<<<<< HEAD
 	proc->p_filetable = NULL;
+=======
+	
+	int i;
+	int found = 0;
+	for(i = __PID_MIN; i < __PID_MAX; i++){
+		if (!process_table[i]){
+			proc->pid = (pid_t)i;
+			process_table[i] = proc;
+			found = 1;
+			break;
+		}
+	}
+	if(!found){
+		panic("No free process ID numbers");
+	}
+
+	proc->parent_proc = NULL;
+
+	for (int i = 0; i < PID_MIN; i++)
+	{
+		proc->child_proc_table[i] = NULL;
+	}
+	proc->child_proc_lock = lock_create("child proc lock");
+
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		//proc->child_proc_table[i] = kmalloc(sizeof(struct child_proc));
+		// proc->child_proc_table[i]->child_proc_lock = lock_create(proc->p_name);
+		// proc->child_proc_table[i]->child_proc = NULL;
+	}
+
+	proc->proc_exit_lock = lock_create("process exit lock");
+	proc->proc_wait_lock = lock_create("process wait lock");
+	proc->proc_wait_cv = cv_create("process wait cv");
+	proc->proc_is_exit = 0;
+	proc->exit_code = -1;
+>>>>>>> asst4-soln
 
 	return proc;
 }
@@ -172,6 +217,54 @@ proc_destroy(struct proc *proc)
 		as_destroy(as);
 	}
 
+	for (int i = 0; i < PID_MAX; i++)
+	{
+		//lock_acquire(proc->p_fd[i]->file_lock);
+
+		if (proc->p_fd[i] != NULL)
+		{
+			vfs_close(proc->p_fd[i]->fvnode);
+			lock_destroy(proc->p_fd[i]->file_lock);		
+			proc->p_fd[i]->file_lock = NULL;
+			kfree(proc->p_fd[i]);
+			proc->p_fd[i] = NULL;
+		}
+
+		//lock_release(proc->p_fd[i]->file_lock);
+
+	}
+	
+	for (int i = PID_MIN; i < PID_MAX; i++)
+	{
+		
+		if(proc->child_proc_table[i] != NULL)
+		{
+			lock_destroy(proc->child_proc_table[i]->child_proc_lock);
+			lock_destroy(proc->child_proc_table[i]->proc_wait_lock);
+			cv_destroy(proc->child_proc_table[i]->proc_wait_cv);
+			lock_destroy(proc->proc_exit_lock);
+			kfree(proc->child_proc_table[i]);
+			//proc->child_proc_table[i] = NULL;
+		}
+	}
+
+	process_table[(int)(proc->pid)] = NULL;
+
+	// for(int i = 0; i <= OPEN_MAX; i++)
+	// {
+	// 	if(proc->p_fd[i] != NULL)
+	// 	{
+	// 		lock_destroy(proc->p_fd[i]->file_lock);
+	// 	}
+	// 	//kprintf("if statement done");
+	// }
+
+	
+	lock_destroy(proc->child_proc_lock);
+	lock_destroy(proc->proc_wait_lock);
+	cv_destroy(proc->proc_wait_cv);
+	lock_destroy(proc->proc_exit_lock);
+
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
 
@@ -186,6 +279,7 @@ void
 proc_bootstrap(void)
 {
 	kproc = proc_create("[kernel]");
+	process_table_lock = lock_create("process_table_lock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
@@ -227,6 +321,9 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+	newproc->proc_exit_lock = lock_create("process exit lock");
+	newproc->proc_wait_lock = lock_create("process wait lock");
+	newproc->proc_wait_cv = cv_create("process wait cv");
 
 	return newproc;
 }

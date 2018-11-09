@@ -117,6 +117,7 @@ common_prog(int nargs, char **args)
 
 	/* Create a process for the new program to run in. */
 	proc = proc_create_runprogram(args[0] /* name */);
+
 	if (proc == NULL) {
 		return ENOMEM;
 	}
@@ -130,7 +131,10 @@ common_prog(int nargs, char **args)
 		proc_destroy(proc);
 		return result;
 	}
-
+	pid_t pid = proc->pid;
+	int status;
+	result = sys_waitpid(pid, &status, 0, &result);
+	
 	/*
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
@@ -698,5 +702,6 @@ menu(char *args)
 		kprintf("OS/161 kernel [? for menu]: ");
 		kgets(buf, sizeof(buf));
 		menu_execute(buf, 0);
+		
 	}
 }

@@ -9,4 +9,5 @@ proc.o: ../../proc/proc.c ../../include/types.h \
  ../../include/limits.h ../../include/kern/limits.h \
  ../../include/current.h includelinks/machine/current.h \
  ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
- opt-dumbvm.h ../../include/vnode.h ../../include/file.h
+ opt-dumbvm.h ../../include/vnode.h ../../include/file.h \
+ ../../include/synch.h ../../include/vfs.h
