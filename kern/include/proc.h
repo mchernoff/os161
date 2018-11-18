@@ -49,6 +49,7 @@ struct proc {
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	struct threadarray p_threads;	/* Threads in this process */
+	pid_t p_pid;			/* Process ID */
 
 	/* VM */
 	struct addrspace *p_addrspace;	/* virtual address space */
@@ -58,33 +59,7 @@ struct proc {
 	struct filetable *p_filetable;	/* table of open files */
 
 	/* add more material here as needed */
-<<<<<<< HEAD
-=======
-	pid_t pid;					/* Process ID */
-
-	//define a file table with OPEN_MAX entries 
-	//each entries should have a lock as well
-	struct file_descriptor *p_fd[OPEN_MAX];		
-
-	//child process table 
-	struct proc *child_proc_table[PID_MAX]; 
-	struct lock *child_proc_lock;
-
-	struct proc *parent_proc;
-
-	// locks in waitpid for wait proc with pid to finish
-	struct lock *proc_wait_lock;
-	struct cv *proc_wait_cv;
-
-	int proc_is_exit;				// 0 if not exit, 1 if already exit
-	int exit_code;
-
-	struct lock *proc_exit_lock;
->>>>>>> asst4-soln
 };
-
-struct proc *process_table[PID_MAX];
-struct lock *process_table_lock;
 
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
@@ -93,13 +68,25 @@ extern struct proc *kproc;
 void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
-struct proc *proc_create_runprogram(const char *name);
+int proc_create_runprogram(const char *name, struct proc **ret);
 
 /* Create a fresh process for use by fork() */
 int proc_fork(struct proc **ret);
 
+/* Undo proc_fork if nothing's run in the new process yet. */
+void proc_unfork(struct proc *proc);
+
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);
+
+/*
+ * Cause the current process to exit. The current thread switches
+ * itself into the kernel process.
+ *
+ * The status code should be prepared with one of the _MKWAIT macros
+ * defined in <kern/wait.h>.
+ */
+void proc_exit(int status);
 
 /* Attach a thread to a process. Must not already have a process. */
 int proc_addthread(struct proc *proc, struct thread *t);
@@ -112,5 +99,6 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
+
 
 #endif /* _PROC_H_ */

@@ -116,7 +116,7 @@ fill_deadbeef(void *vptr, size_t len)
 #undef  SLOW
 #undef SLOWER
 #undef GUARDS
-#define LABELS
+#undef LABELS
 
 #undef CHECKBEEF
 #undef CHECKGUARDS
