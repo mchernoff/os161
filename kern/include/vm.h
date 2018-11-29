@@ -36,7 +36,6 @@
  * You'll probably want to add stuff here.
  */
 
-
 #include <machine/vm.h>
 
 /* Fault-type arguments to vm_fault() */
@@ -59,5 +58,9 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+struct pte {
+	paddr_t frame;
+	uint8_t flags;
+};
 
 #endif /* _VM_H_ */
