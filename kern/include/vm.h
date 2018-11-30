@@ -59,8 +59,17 @@ void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
 struct pte {
-	paddr_t frame;
+	vaddr_t vpage;
+	paddr_t pframe;
 	uint8_t flags;
+};
+
+struct tlb_entry{
+	uint8_t age;
+	uint8_t flags;
+	pid_t pid;
+	paddr_t pframe;
+	vaddr_t vpage;
 };
 
 #endif /* _VM_H_ */

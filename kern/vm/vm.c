@@ -15,8 +15,8 @@
 #define FRAME(x) (firstpaddr + (x * PAGE_SIZE))
 #define UNUSED(x) (void)(x)
 
-#define PAGE_SIZE 4096
 #define VPN_MAX 452
+#define TLB_SIZE 12 //change this later
 
 //PTE helper functions
 #define PTE_VALID_FLAG 32
@@ -48,9 +48,11 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 0-19 - Page frame number
 */	
 static struct pte vpt[VPN_MAX]; 
+static struct tlb_entry tlb[TLB_SIZE];
 
 void vm_bootstrap(void){
 	size_t ramsize;
+	UNUSED(tlb);
 	
 	ramsize = mainbus_ramsize();
 	if (ramsize > 512*1024*1024) {
@@ -63,11 +65,12 @@ void vm_bootstrap(void){
 	
 	unsigned i;
 	for(i = 0; i < VPN_MAX; i++){
-		vpt[i].frame = (paddr_t)((i<<12) + firstpaddr);
+		vpt[i].vpage = ((i<<12) + firstpaddr + MIPS_KSEG0);
+		vpt[i].pframe = 0;
 		vpt[i].flags = 0;
 	}
-	kprintf("first frame %x\n", vpt[0].frame);
-	kprintf("last frame %x\n", vpt[i-1].frame);
+	kprintf("first frame %x\n", vpt[0].pframe);
+	kprintf("last frame %x\n", vpt[i-1].pframe);
 }
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
@@ -83,42 +86,37 @@ static
 paddr_t
 getppages(unsigned long npages)
 {
-	
-	/* TODO */
-	paddr_t addr;
 
 	spinlock_acquire(&stealmem_lock);
 
-	addr = ram_stealmem(npages);
+	/*addr = ram_stealmem(npages);
 
 	spinlock_release(&stealmem_lock);
-	return addr;
-	/*
-	paddr_t addr;
-	UNUSED(addr);
-	UNUSED(npages);
-
+	return addr;*/
 	
-	unsigned i;
+	unsigned i,j;
 	unsigned long found = 0;
 	for(i = 0; i < VPN_MAX; i++){
-		if(!PTE_VALID(vpt[i])){
-			vpt[i].flags = vpt[i].flags | PTE_VALID_FLAG;
-			found+=1;
-			if(found == 1){
-				addr = vpt[i].frame;
-			}
-			if(npages == found){
+		for(j = 0; j < npages; j++){
+			//searches for npages-length block of virtual memory
+			if(PTE_VALID(vpt[i+j])){
 				break;
 			}
+			found++;
+		}
+		if(j == npages){
+			//large enough block found -> fills page table
+			for(j = 0; j < npages; j++){
+				vpt[i+j].flags = vpt[i+j].flags | PTE_VALID_FLAG;
+				vpt[i+j].pframe = ram_stealmem(1);
+			}
+			spinlock_release(&stealmem_lock);
+			return vpt[i].pframe;
 		}
 	}
+	spinlock_release(&stealmem_lock);
 	
-	if(npages != found){
-		return (vaddr_t)0;
-	}
-	
-	return PADDR_TO_KVADDR(addr);*/
+	return 0;
 }
 
 vaddr_t alloc_kpages(unsigned npages){
@@ -129,9 +127,17 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 void free_kpages(vaddr_t addr){
-	/* TODO */
-	UNUSED(addr);
 	
+	spinlock_acquire(&stealmem_lock);
+	
+	unsigned index = (addr - MIPS_KSEG0 - firstpaddr)>>12;
+	if(index >= VPN_MAX){
+		panic("Page table index out of range %d\n", index);
+	}
+	vpt[index].flags = 0;
+	vpt[index].pframe = 0;
+	
+	spinlock_release(&stealmem_lock);
 }
 
 void vm_tlbshootdown_all(void){
