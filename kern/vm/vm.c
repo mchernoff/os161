@@ -33,9 +33,10 @@
 #define PTE_CANWRITE(pte) (pte.flags&PTE_CANWRITE_FLAG)
 #define PTE_CANEXEC(pte) (pte.flags&PTE_CANEXEC_FLAG)
 
+#define KVADDR_TO_PADDR(kvaddr) ((kvaddr)-MIPS_KSEG0)
+
 vaddr_t firstfree;
-static paddr_t firstpaddr;  /* address of first free physical page */
-static paddr_t lastpaddr;   /* one past end of last free physical page */
+static paddr_t initialpaddr;  /* address of first free physical page */
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 /* PTE Flags 
@@ -58,19 +59,14 @@ void vm_bootstrap(void){
 	if (ramsize > 512*1024*1024) {
 		ramsize = 512*1024*1024;
 	}
-	lastpaddr = ramsize;
-	firstpaddr = firstfree - MIPS_KSEG0;
-	kprintf("last %x first %x\n", (int)lastpaddr, (int)firstpaddr);
-	kprintf("ramsize %d\n", (int)(lastpaddr - firstpaddr));
+	initialpaddr = firstfree - MIPS_KSEG0;
 	
 	unsigned i;
 	for(i = 0; i < VPN_MAX; i++){
-		vpt[i].vpage = ((i<<12) + firstpaddr + MIPS_KSEG0);
+		vpt[i].vpage = ((i<<12) + initialpaddr + MIPS_KSEG0);
 		vpt[i].pframe = 0;
 		vpt[i].flags = 0;
 	}
-	kprintf("first frame %x\n", vpt[0].pframe);
-	kprintf("last frame %x\n", vpt[i-1].pframe);
 }
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
@@ -82,21 +78,18 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	return EFAULT;
 }
 
+
 static
-paddr_t
-getppages(unsigned long npages)
+vaddr_t
+getvpages(unsigned long npages)
 {
 
 	spinlock_acquire(&stealmem_lock);
-
-	/*addr = ram_stealmem(npages);
-
-	spinlock_release(&stealmem_lock);
-	return addr;*/
 	
-	unsigned i,j;
-	unsigned long found = 0;
-	for(i = 0; i < VPN_MAX; i++){
+	//unsigned i,j;
+	//unsigned long found = 0;
+	
+	/*for(i = 0; i < VPN_MAX; i++){
 		for(j = 0; j < npages; j++){
 			//searches for npages-length block of virtual memory
 			if(PTE_VALID(vpt[i+j])){
@@ -111,33 +104,63 @@ getppages(unsigned long npages)
 				vpt[i+j].pframe = ram_stealmem(1);
 			}
 			spinlock_release(&stealmem_lock);
-			return vpt[i].pframe;
+			kprintf("Allocating memory va: %x pa: %x idx: %d\n", vpt[i].vpage, vpt[i].pframe, i);
+			return PADDR_TO_KVADDR(vpt[i].pframe);
 		}
-	}
+	}*/
+	vaddr_t va = (ram_stealpages(npages));
 	spinlock_release(&stealmem_lock);
 	
-	return 0;
+	return va;
+	
+	//panic("Ran out of memory");
+	//return PADDR_TO_KVADDR(0);
 }
+
+/*
+static
+paddr_t
+getppages(unsigned long npages)
+{
+	paddr_t addr;
+
+	spinlock_acquire(&stealmem_lock);
+
+	addr = ram_stealmem(npages);
+
+	spinlock_release(&stealmem_lock);
+	return addr;
+}*/
 
 vaddr_t alloc_kpages(unsigned npages){
-	paddr_t pa;
-	pa = getppages(npages);
-	
-	return PADDR_TO_KVADDR(pa);
+	//paddr_t pa = getppages(npages);
+	//vaddr_t va = PADDR_TO_KVADDR(pa);
+	vaddr_t va = getvpages(npages);
+	return va;
 }
 
-void free_kpages(vaddr_t addr){
+void free_kpages(vaddr_t vaddr){
+	UNUSED(vaddr);/*
+	paddr_t addr = KVADDR_TO_PADDR(vaddr);
+	kprintf("Freeing memory %x %x\n", vaddr, addr);
 	
 	spinlock_acquire(&stealmem_lock);
 	
-	unsigned index = (addr - MIPS_KSEG0 - firstpaddr)>>12;
+	unsigned index = (vaddr - MIPS_KSEG0 - initialpaddr)>>12;
+	kprintf("Freeing memory va: %x pa: %x idx: %d\n", vpt[index].vpage, vpt[index].pframe, index);
 	if(index >= VPN_MAX){
 		panic("Page table index out of range %d\n", index);
 	}
+	if(vpt[index].flags == 0){
+		panic("Empty page table entry %x %d\n", addr, index);
+	}
+	
+	ram_returnpage(vpt[index].pframe);
 	vpt[index].flags = 0;
 	vpt[index].pframe = 0;
 	
-	spinlock_release(&stealmem_lock);
+	
+	spinlock_release(&stealmem_lock);*/
 }
 
 void vm_tlbshootdown_all(void){

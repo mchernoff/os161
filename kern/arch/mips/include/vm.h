@@ -107,6 +107,8 @@
 
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);
+vaddr_t ram_stealpages(unsigned long npages);
+void ram_returnpage(paddr_t addr);
 paddr_t ram_getsize(void);
 paddr_t ram_getfirstfree(void);
 
