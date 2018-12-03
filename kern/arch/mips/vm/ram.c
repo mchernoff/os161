@@ -159,7 +159,7 @@ ram_stealpages(unsigned long npages)
 			//large enough block found -> fills page table
 			for(j = 0; j < npages; j++){
 				pagetable[i+j].flags = PTE_VALID_FLAG | pagetable[i].flags;
-				pagetable[i+j].vpage = firstvaddr + j*PAGE_SIZE;
+				pagetable[i+j].vpage = (vaddr_t)(firstvaddr + j*PAGE_SIZE);
 			}
 			firstvaddr += size;
 			return pagetable[i].vpage;
@@ -177,6 +177,8 @@ ram_returnpage(vaddr_t vaddr)
 			pagetable[i].flags = 0;
 			pagetable[i].vpage = 0;
 			firstvaddr = vaddr;
+			kprintf("Returned %x at %d \n", vaddr, i);
+			return;
 		}
 	}
 	panic("Freeing memory failed");
