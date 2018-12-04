@@ -64,12 +64,4 @@ struct pte {
 	uint8_t flags;
 };
 
-struct tlb_entry{
-	uint8_t age;
-	uint8_t flags;
-	pid_t pid;
-	paddr_t pframe;
-	vaddr_t vpage;
-};
-
 #endif /* _VM_H_ */

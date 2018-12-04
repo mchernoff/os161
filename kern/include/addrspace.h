@@ -60,13 +60,22 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        struct lock *pt_lock;                   //lock for page table
-	struct pte pagetable[VPN_MAX];          //page table
-	vaddr_t heap_start;
-	vaddr_t heap_end;
-	bool is_loading_done;                   //Whether loading load_elf is done or not.
-        vaddr_t stack;                          //user stack
-        vaddr_t start;                          //static segment start        
+
+        // struct lock *pt_lock;                   //lock for page table
+	// struct pte pagetable[VPN_MAX];          //page table
+	// vaddr_t heap_start;
+	// vaddr_t heap_end;
+	// bool is_loading_done;                   //Whether loading load_elf is done or not.
+        // vaddr_t stack;                          //user stack
+        // vaddr_t start;                          //static segment start        
+
+        vaddr_t as_vbase1;
+        paddr_t as_pbase1;
+        size_t as_npages1;
+        vaddr_t as_vbase2;
+        paddr_t as_pbase2;
+        size_t as_npages2;
+        paddr_t as_stackpbase;
 #endif
 };
 

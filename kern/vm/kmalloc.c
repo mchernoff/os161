@@ -1211,6 +1211,7 @@ kfree(void *ptr)
 	if (ptr == NULL) {
 		return;
 	} else if (subpage_kfree(ptr)) {
+		kprintf("kfree success\n");
 		KASSERT((vaddr_t)ptr%PAGE_SIZE==0);
 		free_kpages((vaddr_t)ptr);
 	}
