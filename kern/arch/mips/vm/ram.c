@@ -142,7 +142,7 @@ vaddr_t
 ram_stealpages(unsigned long npages)
 {
 	size_t size;
-
+	
 	size = npages * PAGE_SIZE;
 	
 	unsigned i,j;
@@ -177,7 +177,6 @@ ram_returnpage(vaddr_t vaddr)
 			pagetable[i].flags = 0;
 			pagetable[i].vpage = 0;
 			firstvaddr = vaddr;
-			kprintf("Returned %x at %d \n", vaddr, i);
 			return;
 		}
 	}
