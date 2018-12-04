@@ -37,8 +37,6 @@ uint8_t num_shootdowns;
 void vm_bootstrap(void){
 	num_shootdowns = 0;
 }
-
-/* Fault handling function called by trap code */
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -181,13 +179,6 @@ void vm_tlbshootdown_all(void){
 	}
 }
 
-<<<<<<< HEAD
-void vm_tlbshootdown(const struct tlbshootdown * shoot){
-	/* TODO */
-	UNUSED(shoot);
-	panic("dumbvm tried to do tlb shootdown?!\n");
-}
-=======
 void vm_tlbshootdown(const struct tlbshootdown * sd){
 	int i;
 	uint32_t elo, ehi;
@@ -209,4 +200,3 @@ void vm_tlbshootdown(const struct tlbshootdown * sd){
 	}
 	panic("tlb shootdown failed with vaddr %x\n", sd->vaddr);
 }
->>>>>>> 3d45c4cc18360412868f05821307aa9924bb32e0

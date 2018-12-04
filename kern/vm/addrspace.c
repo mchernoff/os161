@@ -57,9 +57,9 @@ as_create(void)
 		return NULL;
 	}
 
-	as->pt_lock = lock_create("page table lock");
-	as->start = 0x00;					//initialize Static Segment Start to 0
-	as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
+	// as->pt_lock = lock_create("page table lock");
+	// as->start = 0x00;					//initialize Static Segment Start to 0
+	// as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
 
 	return as;
 }
@@ -79,24 +79,24 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-	lock_acquire(old->pt_lock);
+	// lock_acquire(old->pt_lock);
 
-	for(size_t i = 0; i < VPN_MAX; i++)
-	{
-		struct pte *old_entry =  &(old->pagetable[i]);
+	// for(size_t i = 0; i < VPN_MAX; i++)
+	// {
+	// 	struct pte *old_entry =  &(old->pagetable[i]);
 
-		if(old_entry != NULL)
-		{
-			struct pte *new_entry = kmalloc(sizeof (struct pte));
-			newas->pagetable[i] = new_entry;
-		}
-		else
-		{
-			newas->pagetable[i] = NULL;
-		}
-	}
+	// 	if(old_entry != NULL)
+	// 	{
+	// 		struct pte *new_entry = kmalloc(sizeof (struct pte));
+	// 		newas->pagetable[i] = new_entry;
+	// 	}
+	// 	else
+	// 	{
+	// 		newas->pagetable[i] = NULL;
+	// 	}
+	// }
 
-	lock_release(old->pt_lock);
+	// lock_release(old->pt_lock);
 
 	*ret = newas;
 	return 0;
