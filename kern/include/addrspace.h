@@ -37,9 +37,11 @@
 
 #include <vm.h>
 #include "opt-dumbvm.h"
+#include <spinlock.h>
 
 struct vnode;
 
+#define TLB_SIZE 12 //change this later
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -58,7 +60,13 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
+        struct lock *pt_lock;                   //lock for page table
+	struct pte pagetable[VPN_MAX];          //page table
+	vaddr_t heap_start;
+	vaddr_t heap_end;
+	bool is_loading_done;                   //Whether loading load_elf is done or not.
+        vaddr_t stack;                          //user stack
+        vaddr_t start;                          //static segment start        
 #endif
 };
 

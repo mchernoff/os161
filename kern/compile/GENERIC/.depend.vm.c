@@ -8,4 +8,4 @@ vm.o: ../../vm/vm.c ../../include/types.h ../../include/kern/types.h \
  includelinks/kern/machine/setjmp.h ../../include/current.h \
  includelinks/machine/current.h includelinks/mips/tlb.h \
  ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
- opt-dumbvm.h ../../include/mainbus.h
+ opt-dumbvm.h ../../include/mainbus.h ../../include/synch.h

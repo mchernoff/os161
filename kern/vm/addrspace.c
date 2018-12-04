@@ -33,6 +33,8 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <spinlock.h>
+#include <synch.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -40,6 +42,11 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
+/*	Create a new empty address space. You need to make
+ *  sure this gets called in all the right places. You
+ *  may find you want to change the argument list. May
+ *  return NULL on out-of-memory error.
+ */
 struct addrspace *
 as_create(void)
 {
@@ -50,13 +57,18 @@ as_create(void)
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+	as->pt_lock = lock_create("page table lock");
+	as->start = 0x00;					//initialize Static Segment Start to 0
+	as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
 
 	return as;
 }
 
+/*Create a new address space that is an exact copy of
+ *    an old one. Probably calls as_create to get a new
+ *    empty address space and fill it in, but that's up to
+ *    you.
+*/
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
@@ -67,11 +79,24 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-	/*
-	 * Write this.
-	 */
+	lock_acquire(old->pt_lock);
 
-	(void)old;
+	for(size_t i = 0; i < VPN_MAX; i++)
+	{
+		struct pte *old_entry =  &(old->pagetable[i]);
+
+		if(old_entry != NULL)
+		{
+			struct pte *new_entry = kmalloc(sizeof (struct pte));
+			newas->pagetable[i] = new_entry;
+		}
+		else
+		{
+			newas->pagetable[i] = NULL;
+		}
+	}
+
+	lock_release(old->pt_lock);
 
 	*ret = newas;
 	return 0;
