@@ -153,6 +153,18 @@ getvpages(unsigned long npages)
 	return va;
 }
 
+/*static
+vaddr_t
+getppages(unsigned long npages)
+{
+	spinlock_acquire(&stealmem_lock);
+	
+	vaddr_t va = PADDR_TO_KVADDR(ram_stealmem(npages));
+	spinlock_release(&stealmem_lock);
+	
+	return va;
+}*/
+
 vaddr_t alloc_kpages(unsigned npages){
 	//paddr_t pa = getppages(npages);
 	//vaddr_t va = PADDR_TO_KVADDR(pa);

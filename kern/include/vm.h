@@ -43,6 +43,7 @@
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
+#define VPN_MAX 452
 
 /* Initialization function */
 void vm_bootstrap(void);
@@ -58,8 +59,17 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+struct page {
+	vaddr_t addr;
+	uint8_t flags;
+};
+
 struct pte {
 	vaddr_t vpage;
+	uint8_t flags;
+};
+
+struct fte {
 	paddr_t pframe;
 	uint8_t flags;
 };

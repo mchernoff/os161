@@ -32,7 +32,6 @@
 #include <vm.h>
 #include <mainbus.h>
 
-#define VPN_MAX 452
 
 //PTE helper functions
 #define PTE_VALID_FLAG 32
@@ -48,14 +47,12 @@
 #define PTE_CANREAD(pte) (pte.flags&PTE_CANREAD_FLAG)
 #define PTE_CANWRITE(pte) (pte.flags&PTE_CANWRITE_FLAG)
 #define PTE_CANEXEC(pte) (pte.flags&PTE_CANEXEC_FLAG)
-struct pte pagetable[VPN_MAX];
+struct fte frametable[VPN_MAX];
 
 vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
-
-static paddr_t firstvaddr;  /* address of first free physical page */
 
 
 /*
@@ -88,13 +85,11 @@ ram_bootstrap(void)
 	 * Convert to physical address.
 	 */
 	firstpaddr = firstfree - MIPS_KSEG0;
-	firstvaddr = firstfree;
 	
 	unsigned i;
 	for(i = 0; i < VPN_MAX; i++){
-		pagetable[i].pframe = ((i*PAGE_SIZE) + firstpaddr);
-		pagetable[i].vpage = 0;
-		pagetable[i].flags = 0;
+		frametable[i].pframe = firstpaddr + i*PAGE_SIZE;
+		frametable[i].flags = 0;
 	}
 
 	kprintf("first address %x\n", firstpaddr);
@@ -141,28 +136,23 @@ ram_stealmem(unsigned long npages)
 vaddr_t
 ram_stealpages(unsigned long npages)
 {
-	size_t size;
-	
-	size = npages * PAGE_SIZE;
 	
 	unsigned i,j;
 	unsigned long found = 0;
 	for(i = 0; i < VPN_MAX; i++){
 		for(j = 0; j < npages; j++){
 			//searches for npages-length block of virtual memory
-			if(PTE_VALID(pagetable[i+j])){
+			if(frametable[i+j].flags){
 				break;
 			}
 			found++;
 		}
 		if(j == npages){
-			//large enough block found -> fills page table
+			//large enough block found -> fills frame table
 			for(j = 0; j < npages; j++){
-				pagetable[i+j].flags = PTE_VALID_FLAG | pagetable[i].flags;
-				pagetable[i+j].vpage = (vaddr_t)(firstvaddr + j*PAGE_SIZE);
+				frametable[i+j].flags = 1;
 			}
-			firstvaddr += size;
-			return pagetable[i].vpage;
+			return PADDR_TO_KVADDR(frametable[i].pframe);
 		}
 	}
 	return 0;
@@ -171,16 +161,11 @@ ram_stealpages(unsigned long npages)
 void 
 ram_returnpage(vaddr_t vaddr)
 {
+	paddr_t pa = KVADDR_TO_PADDR(vaddr);
 	unsigned i;
-	for(i = 0; i < VPN_MAX; i++){
-		if(pagetable[i].vpage == vaddr){
-			pagetable[i].flags = 0;
-			pagetable[i].vpage = 0;
-			firstvaddr = vaddr;
-			return;
-		}
-	}
-	panic("Freeing memory failed");
+	i = (pa - firstpaddr) / PAGE_SIZE;
+	KASSERT(i < VPN_MAX);
+	frametable[i].flags = 0;
 }
 
 /*
