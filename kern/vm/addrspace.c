@@ -53,20 +53,58 @@
 struct addrspace *
 as_create(void)
 {
-	struct addrspace *as = kmalloc(sizeof(struct addrspace));
-	if (as==NULL) {
+	struct addrspace *as;
+
+	as = kmalloc(sizeof(struct addrspace));
+	if (as == NULL) {
 		return NULL;
 	}
 
-	as->as_vbase1 = 0;
-	as->as_pbase1 = 0;
-	as->as_npages1 = 0;
-	as->as_vbase2 = 0;
-	as->as_pbase2 = 0;
-	as->as_npages2 = 0;
-	as->as_stackpbase = 0;
+	// as->pt_lock = lock_create("page table lock");
+	// as->start = 0x00;					//initialize Static Segment Start to 0
+	// as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
 
 	return as;
+}
+
+/*Create a new address space that is an exact copy of
+ *    an old one. Probably calls as_create to get a new
+ *    empty address space and fill it in, but that's up to
+ *    you.
+*/
+int
+as_copy(struct addrspace *old, struct addrspace **ret)
+{
+	struct addrspace *newas;
+
+	newas = as_create();
+	if (newas==NULL) {
+		return ENOMEM;
+	}
+
+	lock_acquire(old->pt_lock);
+
+	for(size_t i = 0; i < PAGE_DIR_SIZE; i++)
+	{
+		//this part need to be changed after we change page table
+		
+		// struct pte *old_entry =  &(old->pagetable[i]);
+
+		// if(old_entry != NULL)
+		// {
+		// 	struct pte *new_entry = kmalloc(sizeof (struct pte));
+		// 	newas->pagetable[i] = new_entry;
+		// }
+		// else
+		// {
+		// 	newas->pagetable[i] = NULL;
+		// }
+	}
+
+	lock_release(old->pt_lock);
+
+	*ret = newas;
+	return 0;
 }
 
 void
@@ -193,44 +231,5 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
-int
-as_copy(struct addrspace *old, struct addrspace **ret)
-{
-	struct addrspace *new;
 
-	new = as_create();
-	if (new==NULL) {
-		return ENOMEM;
-	}
-
-	new->as_vbase1 = old->as_vbase1;
-	new->as_npages1 = old->as_npages1;
-	new->as_vbase2 = old->as_vbase2;
-	new->as_npages2 = old->as_npages2;
-
-	/* (Mis)use as_prepare_load to allocate some physical memory. */
-	if (as_prepare_load(new)) {
-		as_destroy(new);
-		return ENOMEM;
-	}
-
-	KASSERT(new->as_pbase1 != 0);
-	KASSERT(new->as_pbase2 != 0);
-	KASSERT(new->as_stackpbase != 0);
-
-	memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
-		(const void *)PADDR_TO_KVADDR(old->as_pbase1),
-		old->as_npages1*PAGE_SIZE);
-
-	memmove((void *)PADDR_TO_KVADDR(new->as_pbase2),
-		(const void *)PADDR_TO_KVADDR(old->as_pbase2),
-		old->as_npages2*PAGE_SIZE);
-
-	memmove((void *)PADDR_TO_KVADDR(new->as_stackpbase),
-		(const void *)PADDR_TO_KVADDR(old->as_stackpbase),
-		VPN_MAX*PAGE_SIZE);
-
-	*ret = new;
-	return 0;
-}
 

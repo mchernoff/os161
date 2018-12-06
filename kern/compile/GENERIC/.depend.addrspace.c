@@ -4,7 +4,7 @@ addrspace.o: ../../vm/addrspace.c ../../include/types.h \
  ../../include/lib.h ../../include/cdefs.h opt-noasserts.h \
  ../../include/addrspace.h ../../include/vm.h includelinks/machine/vm.h \
  opt-dumbvm.h ../../include/spinlock.h includelinks/machine/spinlock.h \
- ../../include/proc.h ../../include/thread.h ../../include/array.h \
- ../../include/threadlist.h includelinks/machine/thread.h \
- ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
- ../../include/synch.h
+ ../../include/spl.h includelinks/mips/tlb.h ../../include/proc.h \
+ ../../include/thread.h ../../include/array.h ../../include/threadlist.h \
+ includelinks/machine/thread.h ../../include/setjmp.h \
+ includelinks/kern/machine/setjmp.h ../../include/synch.h
