@@ -32,12 +32,14 @@
 #include <lib.h>
 #include <addrspace.h>
 #include <machine/vm.h>
+#include <vm.h>
 #include <spl.h>
 #include <mips/tlb.h>
-#include <vm.h>
 #include <proc.h>
 #include <spinlock.h>
 #include <synch.h>
+
+#define UNUSED(x) (void)(x)
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -59,10 +61,16 @@ as_create(void)
 	if (as == NULL) {
 		return NULL;
 	}
+	
+	unsigned i;
+	for(i = 0; i < PAGE_TABLE_SIZE; i++){
+		as->pagetable[i].vpage = firstfree + i*PAGE_SIZE;
+		as->pagetable[i].flags = 0;
+	}
 
-	// as->pt_lock = lock_create("page table lock");
-	// as->start = 0x00;					//initialize Static Segment Start to 0
-	// as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
+	as->pt_lock = lock_create("page table lock");
+	as->static_start = 0x0;					//initialize Static Segment Start to 0
+	as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
 
 	return as;
 }
@@ -84,7 +92,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	lock_acquire(old->pt_lock);
 
-	for(size_t i = 0; i < PAGE_DIR_SIZE; i++)
+	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
 	{
 		//this part need to be changed after we change page table
 		
@@ -140,11 +148,21 @@ as_deactivate(void)
 	/* nothing */
 }
 
+void pte_insert(struct addrspace *as, vaddr_t va, uint8_t flags){
+	size_t index = VA_TO_PT_INDEX(va);
+	as->pagetable[index].flags = flags;
+	as->pagetable[index].vpage = va;
+}
+
 int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	size_t npages;
+	
+	if(as->static_start == 0x0){
+		as->static_start = vaddr & PAGE_FRAME;
+	}
 
 	/* Align the region. First, the base... */
 	sz += vaddr & ~(vaddr_t)PAGE_FRAME;
@@ -154,78 +172,62 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	sz = (sz + PAGE_SIZE - 1) & PAGE_FRAME;
 
 	npages = sz / PAGE_SIZE;
-
-	/* We don't use these - all pages are read-write */
-	(void)readable;
-	(void)writeable;
-	(void)executable;
-
-	if (as->as_vbase1 == 0) {
-		as->as_vbase1 = vaddr;
-		as->as_npages1 = npages;
-		return 0;
+	KASSERT(sz%PAGE_SIZE == 0);
+	
+	vaddr_t seg_end = vaddr + sz;
+	KASSERT(seg_end > as->heap_start);
+	
+	as->heap_start = seg_end + PAGE_SIZE;
+	as->heap_end = as->heap_start;
+	
+	uint8_t flags = 0;
+	if(readable){
+		flags |= PTE_CANREAD_FLAG;
 	}
-
-	if (as->as_vbase2 == 0) {
-		as->as_vbase2 = vaddr;
-		as->as_npages2 = npages;
-		return 0;
+	if(writeable){
+		flags |= PTE_CANWRITE_FLAG;
 	}
-
-	/*
-	 * Support for more than two regions is not available.
-	 */
-	kprintf("dumbvm: Warning: too many regions\n");
-	return ENOSYS;
+	if(executable){
+		flags |= PTE_CANEXEC_FLAG;
+	}
+	
+	vaddr_t cur_vaddr = vaddr;
+	
+	size_t i;
+	for(i = 0; i < npages; i++){
+		pte_insert(as, cur_vaddr, flags);
+		cur_vaddr += PAGE_SIZE;
+	}
+	
+	return 0;
 }
 
-static
+/*static
 void
 as_zero_region(paddr_t paddr, unsigned npages)
 {
 	bzero((void *)PADDR_TO_KVADDR(paddr), npages * PAGE_SIZE);
-}
+}*/
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	KASSERT(as->as_pbase1 == 0);
-	KASSERT(as->as_pbase2 == 0);
-	KASSERT(as->as_stackpbase == 0);
-
-	as->as_pbase1 = alloc_kpages(as->as_npages1);
-	if (as->as_pbase1 == 0) {
-		return ENOMEM;
-	}
-
-	as->as_pbase2 = alloc_kpages(as->as_npages2);
-	if (as->as_pbase2 == 0) {
-		return ENOMEM;
-	}
-
-	as->as_stackpbase = alloc_kpages(VPN_MAX);
-	if (as->as_stackpbase == 0) {
-		return ENOMEM;
-	}
-
-	as_zero_region(as->as_pbase1, as->as_npages1);
-	as_zero_region(as->as_pbase2, as->as_npages2);
-	as_zero_region(as->as_stackpbase, VPN_MAX);
-
+	as->is_loading_done = false;
 	return 0;
 }
 
 int
 as_complete_load(struct addrspace *as)
 {
-	(void)as;
+	as->is_loading_done = true;
+	as_activate();
 	return 0;
 }
 
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	KASSERT(as->as_stackpbase != 0);
+	as->stack = (vaddr_t) USERSTACK - PAGE_SIZE;
 
 	*stackptr = USERSTACK;
 	return 0;

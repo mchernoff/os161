@@ -41,7 +41,6 @@
 
 struct vnode;
 
-#define TLB_SIZE 12 //change this later
 #define PAGE_TABLE_SIZE 1024
 /*
  * Address space - data structure associated with the virtual memory
@@ -62,19 +61,12 @@ struct addrspace {
 #else
 
         struct lock *pt_lock;                   //lock for page table
-	struct pte pagetable[PAGE_TABLE_SIZE];          //page table
-	vaddr_t heap_start;
-	vaddr_t heap_end;
-	bool is_loading_done;                   //Whether loading load_elf is done or not.
+		struct pte pagetable[PAGE_TABLE_SIZE];          //page table
+		vaddr_t heap_start;
+		vaddr_t heap_end;
+		bool is_loading_done;                   //Whether loading load_elf is done or not.
         vaddr_t stack;                          //user stack       
-
-        vaddr_t as_vbase1;
-        paddr_t as_pbase1;
-        size_t as_npages1;
-        vaddr_t as_vbase2;
-        paddr_t as_pbase2;
-        size_t as_npages2;
-        paddr_t as_stackpbase;
+		vaddr_t static_start;
 #endif
 };
 
@@ -133,6 +125,8 @@ int               as_define_region(struct addrspace *as,
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+
+void pte_insert(struct addrspace *as, vaddr_t va, uint8_t flags);
 
 
 /*

@@ -59,13 +59,25 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
-struct page {
-	vaddr_t addr;
-	uint8_t flags;
-};
+//PTE helper functions
+#define PTE_VALID_FLAG 32
+#define PTE_MOD_FLAG 16
+#define PTE_REF_FLAG 8
+#define PTE_CANREAD_FLAG 4
+#define PTE_CANWRITE_FLAG 2
+#define PTE_CANEXEC_FLAG 1
+
+#define PTE_VALID(pte) (pte.flags&PTE_VALID_FLAG)
+#define PTE_MOD(pte) (pte.flags&PTE_MOD_FLAG)
+#define PTE_REF(pte) (pte.flags&PTE_REF_FLAG)
+#define PTE_CANREAD(pte) (pte.flags&PTE_CANREAD_FLAG)
+#define PTE_CANWRITE(pte) (pte.flags&PTE_CANWRITE_FLAG)
+#define PTE_CANEXEC(pte) (pte.flags&PTE_CANEXEC_FLAG)
 
 struct pte {
 	vaddr_t vpage;
+	paddr_t pframe;
+	unsigned npages;
 	uint8_t flags;
 };
 

@@ -30,26 +30,11 @@
 #include <types.h>
 #include <lib.h>
 #include <vm.h>
+#include <machine/vm.h>
 #include <mainbus.h>
 
 
-//PTE helper functions
-#define PTE_VALID_FLAG 32
-#define PTE_MOD_FLAG 16
-#define PTE_REF_FLAG 8
-#define PTE_CANREAD_FLAG 4
-#define PTE_CANWRITE_FLAG 2
-#define PTE_CANEXEC_FLAG 1
-
-#define PTE_VALID(pte) (pte.flags&PTE_VALID_FLAG)
-#define PTE_MOD(pte) (pte.flags&PTE_MOD_FLAG)
-#define PTE_REF(pte) (pte.flags&PTE_REF_FLAG)
-#define PTE_CANREAD(pte) (pte.flags&PTE_CANREAD_FLAG)
-#define PTE_CANWRITE(pte) (pte.flags&PTE_CANWRITE_FLAG)
-#define PTE_CANEXEC(pte) (pte.flags&PTE_CANEXEC_FLAG)
 struct fte frametable[VPN_MAX];
-
-vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
@@ -133,15 +118,15 @@ ram_stealmem(unsigned long npages)
 	return paddr;
 }
 
-vaddr_t
+paddr_t
 ram_stealpages(unsigned long npages)
 {
 	
 	unsigned i,j;
 	unsigned long found = 0;
-	for(i = 0; i < VPN_MAX; i++){
+	for(i = 0; i < VPN_MAX - npages; i++){
 		for(j = 0; j < npages; j++){
-			//searches for npages-length block of virtual memory
+			//searches for npages-length block of physical memory
 			if(frametable[i+j].flags){
 				break;
 			}
@@ -152,18 +137,18 @@ ram_stealpages(unsigned long npages)
 			for(j = 0; j < npages; j++){
 				frametable[i+j].flags = 1;
 			}
-			return PADDR_TO_KVADDR(frametable[i].pframe);
+			return frametable[i].pframe;
 		}
 	}
 	return 0;
 }
 
 void 
-ram_returnpage(vaddr_t vaddr)
+ram_returnpage(paddr_t paddr)
 {
-	paddr_t pa = KVADDR_TO_PADDR(vaddr);
 	unsigned i;
-	i = (pa - firstpaddr) / PAGE_SIZE;
+	i = (paddr - firstpaddr) / PAGE_SIZE;
+	KASSERT(firstpaddr <= paddr);
 	KASSERT(i < VPN_MAX);
 	frametable[i].flags = 0;
 }

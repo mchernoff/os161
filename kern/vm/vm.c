@@ -23,6 +23,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 static struct spinlock tlb_lock = SPINLOCK_INITIALIZER;
 
 uint8_t num_shootdowns;
+bool initialized = false;
 
 /* PTE Flags 
 5 - Valid
@@ -36,11 +37,11 @@ uint8_t num_shootdowns;
 
 void vm_bootstrap(void){
 	num_shootdowns = 0;
+	initialized = true;
 }
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
 	int i;
 	uint32_t ehi, elo;
@@ -78,21 +79,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	/* Assert that the address space has been set up properly. */
-	KASSERT(as->as_vbase1 != 0);
-	KASSERT(as->as_pbase1 != 0);
-	KASSERT(as->as_npages1 != 0);
-	KASSERT(as->as_vbase2 != 0);
-	KASSERT(as->as_pbase2 != 0);
-	KASSERT(as->as_npages2 != 0);
-	KASSERT(as->as_stackpbase != 0);
-	KASSERT((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	KASSERT((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	KASSERT((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	KASSERT((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
-	KASSERT((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
-
-	vbase1 = as->as_vbase1;
+	/*vbase1 = as->as_vbase1;
 	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
 	vbase2 = as->as_vbase2;
 	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
@@ -110,10 +97,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 	else {
 		return EFAULT;
-	}
+	}*/
 
+	paddr = faultaddress;
 	/* make sure it's page-aligned */
 	KASSERT((paddr & PAGE_FRAME) == paddr);
+	
+	
 	
 	spinlock_acquire(&tlb_lock);
 
@@ -141,44 +131,98 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 
 static
-vaddr_t
-getvpages(unsigned long npages)
+paddr_t
+alloc_ppages(unsigned long npages)
 {
 
 	spinlock_acquire(&stealmem_lock);
 	
-	vaddr_t va = (ram_stealpages(npages));
+	paddr_t pa = (ram_stealpages(npages));
 	spinlock_release(&stealmem_lock);
 	
-	return va;
+	return pa;
 }
 
-/*static
-vaddr_t
+static
+paddr_t
 getppages(unsigned long npages)
 {
+	paddr_t addr;
+
 	spinlock_acquire(&stealmem_lock);
-	
-	vaddr_t va = PADDR_TO_KVADDR(ram_stealmem(npages));
+
+	addr = ram_stealpages(npages);
+
 	spinlock_release(&stealmem_lock);
-	
-	return va;
-}*/
+	return addr;
+}
 
 vaddr_t alloc_kpages(unsigned npages){
-	//paddr_t pa = getppages(npages);
-	//vaddr_t va = PADDR_TO_KVADDR(pa);
-	vaddr_t va = getvpages(npages);
-	return va;
+	paddr_t pa;
+	struct addrspace* as;
+	
+	if(!initialized || curproc->p_addrspace == NULL){
+		pa = getppages(npages);
+		if (pa==0) {
+			return 0;
+		}
+		return PADDR_TO_KVADDR(pa);
+	}
+	
+	as = proc_getas();
+	
+	pa = alloc_ppages(npages);
+	
+	unsigned i,j;
+	unsigned found = 0;
+	for(i = 0; i < PAGE_TABLE_SIZE - npages; i++){
+		for(j = 0; j < npages; j++){
+			//searches for npages-length block of virtual memory
+			if(PTE_VALID(as->pagetable[i+j])){
+				break;
+			}
+			found++;
+		}
+		if(j == npages){
+			//large enough block found -> fills page table
+			for(j = 0; j < npages; j++){
+				as->pagetable[i+j].flags |= PTE_VALID_FLAG;
+				as->pagetable[i+j].pframe |= pa + j*PAGE_SIZE;
+			}
+			as->pagetable[i].npages = npages;
+			return as->pagetable[i].vpage;
+		}
+	}
+	return ENOMEM;
 }
 
 void free_kpages(vaddr_t vaddr){
 	
+	unsigned i;
+	unsigned index = VA_TO_PT_INDEX(vaddr);
+	KASSERT(index < PAGE_TABLE_SIZE);
+	
+	if(!initialized || curproc->p_addrspace == NULL){
+		paddr_t paddr = KVADDR_TO_PADDR(vaddr);
+		ram_returnpage(paddr);
+		return;
+	}
+	
+	struct addrspace* as = proc_getas();
+	
 	spinlock_acquire(&stealmem_lock);
-	
-	ram_returnpage(vaddr);
-	
+	for(i = 0; i < as->pagetable[index].npages; i++){
+		ram_returnpage(vaddr + i*PAGE_SIZE);
+	}
 	spinlock_release(&stealmem_lock);
+	
+	lock_acquire(as->pt_lock);
+	for(i = 0; i < as->pagetable[index].npages; i++){
+		as->pagetable[index+i].flags &= !PTE_VALID_FLAG;
+		as->pagetable[index+i].pframe = 0;
+	}
+	as->pagetable[index].npages = 0;
+	lock_release(as->pt_lock);
 }
 
 void vm_tlbshootdown_all(void){
