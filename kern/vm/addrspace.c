@@ -55,7 +55,7 @@
 struct addrspace *
 as_create(void)
 {
-	kprintf("start calling as_create \n");
+	//kprintf("start calling as_create \n");
 	struct addrspace *as;
 
 	as = kmalloc(sizeof(struct addrspace));
@@ -73,7 +73,7 @@ as_create(void)
 	as->static_start = 0x0;					//initialize Static Segment Start to 0
 	as->is_loading_done = false;		//allow load_elf to access address space while calling as_create
 
-	kprintf("finish calling as_create \n");
+	//kprintf("finish calling as_create \n");
 
 	return as;
 }
@@ -86,7 +86,7 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-	kprintf("start calling as_copy \n");
+	//kprintf("start calling as_copy \n");
 	struct addrspace *newas;
 
 	newas = as_create();
@@ -117,7 +117,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	*ret = newas;
 
-	kprintf("finish calling as_copy \n");
+	//kprintf("finish calling as_copy \n");
 	return 0;
 }
 
@@ -130,6 +130,7 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
+	//kprintf("start calling as_activate \n");
 	int i, spl;
 	struct addrspace *as;
 
@@ -148,6 +149,7 @@ as_activate(void)
 	//tlb_random(0x400000,0x450200);
 
 	splx(spl);
+	//kprintf("finish calling as_activate \n");
 }
 
 void

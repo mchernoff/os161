@@ -42,7 +42,8 @@ void vm_bootstrap(void){
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	kprintf("start calling vm_fault \n");
+	//kprintf("start calling vm_fault \n");
+	kprintf("faultaddress: %x \n", faultaddress);
 	paddr_t paddr;
 	int i;
 	uint32_t ehi, elo;
@@ -92,26 +93,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EINVAL;
 	}
 
-	/*vbase1 = as->as_vbase1;
-	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
-	vbase2 = as->as_vbase2;
-	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
-	stackbase = USERSTACK - VPN_MAX * PAGE_SIZE;
-	stacktop = USERSTACK;
-
-	if (faultaddress >= vbase1 && faultaddress < vtop1) {
-		paddr = (faultaddress - vbase1) + as->as_pbase1;
-	}
-	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
-		paddr = (faultaddress - vbase2) + as->as_pbase2;
-	}
-	else if (faultaddress >= stackbase && faultaddress < stacktop) {
-		paddr = (faultaddress - stackbase) + as->as_stackpbase;
-	}
-	else {
-		return EFAULT;
-	}*/
-
 	paddr = faultaddress;
 	/* make sure it's page-aligned */
 	KASSERT((paddr & PAGE_FRAME) == paddr);
@@ -125,8 +106,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	//kprintf("before for loop vm_fault \n");
 	for (i=0; i<NUM_TLB; i++) {
-		kprintf("i: %d \n", i);
-		kprintf("before forloop tlb_read vm_fault \n");
+		//kprintf("index: %d , NUM_TLB: %d \n", i, NUM_TLB);
+		//kprintf("before forloop tlb_read vm_fault \n");
 		tlb_read(&ehi, &elo, i);
 		//kprintf("after forloop tlb_read vm_fault \n");
 		if (elo & TLBLO_VALID) {
@@ -140,7 +121,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		splx(spl);
 		//kprintf("after forloop splx vm_fault \n");
 		spinlock_release(&tlb_lock);
-		kprintf("after forloop spinlock_release vm_fault \n");
+		//kprintf("after forloop spinlock_release vm_fault \n");
 		return 0;
 	}
 
@@ -150,7 +131,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	spinlock_release(&tlb_lock);
 	splx(spl);
 
-	kprintf("finish calling vm_fault \n");
+	//kprintf("finish calling vm_fault \n");
 	return EFAULT;
 }
 
