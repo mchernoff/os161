@@ -70,7 +70,7 @@ as_create(void)
 
 	as->pt_lock = lock_create("page table lock");
 	as->static_start = 0x0;					//initialize Static Segment Start to 0
-	as->is_loading_done = false;		//allow load_elf to access address space while calling as_creat
+	as->is_loading_done = false;		//allow load_elf to access address space while calling as_create
 
 	return as;
 }
@@ -138,6 +138,8 @@ as_activate(void)
 	for (i=0; i<NUM_TLB; i++) {
 		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
 	}
+	
+	//tlb_random(0x400000,0x450200);
 
 	splx(spl);
 }
@@ -148,14 +150,15 @@ as_deactivate(void)
 	/* nothing */
 }
 
-void pte_insert(struct addrspace *as, vaddr_t va, uint8_t flags){
+void pte_insert(struct addrspace *as, vaddr_t va, paddr_t pa, uint8_t flags){
 	size_t index = VA_TO_PT_INDEX(va);
 	as->pagetable[index].flags = flags;
 	as->pagetable[index].vpage = va;
+	as->pagetable[index].pframe = pa;
 }
 
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
+as_define_region(struct addrspace *as, vaddr_t vaddr, paddr_t paddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	size_t npages;
@@ -192,11 +195,16 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	}
 	
 	vaddr_t cur_vaddr = vaddr;
+	paddr_t cur_paddr = paddr;
 	
 	size_t i;
+	//uint32_t elo, ehi;
 	for(i = 0; i < npages; i++){
-		pte_insert(as, cur_vaddr, flags);
+		//ehi = cur_vaddr;
+		//elo = (cur_paddr&TLBLO_PPAGE) | TLBLO_VALID;
+		pte_insert(as, cur_vaddr, cur_paddr, flags);
 		cur_vaddr += PAGE_SIZE;
+		cur_paddr += PAGE_SIZE;
 	}
 	
 	return 0;
