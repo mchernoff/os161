@@ -1,4 +1,4 @@
-scripts for dumping resizeable arrays.
+#scripts for dumping resizeable arrays.
 #
 # Unfortunately, there does not seem to be a way to do this without
 # cutting and pasting for every type.
@@ -77,7 +77,8 @@ Print an array of struct vnode.
 Usage: vnodearray sfs->sfs_vnodes
 end
 
-directory ~/os161/src/kern/compile/DUMBVM
-define db 
+directory ~/os161/kern/compile/GENERIC
+
+ 
 target remote unix:.sockets/gdb 
-end
+

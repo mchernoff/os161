@@ -55,14 +55,13 @@
 struct addrspace *
 as_create(void)
 {
-	//kprintf("start calling as_create \n");
 	struct addrspace *as;
 
 	as = kmalloc(sizeof(struct addrspace));
 	if (as == NULL) {
 		return NULL;
 	}
-
+	
 	unsigned i;
 	for(i = 0; i < PAGE_TABLE_SIZE; i++){
 		as->pagetable[i].vpage = firstfree + i*PAGE_SIZE;
@@ -72,8 +71,6 @@ as_create(void)
 	as->pt_lock = lock_create("page table lock");
 	as->static_start = 0x0;					//initialize Static Segment Start to 0
 	as->is_loading_done = false;		//allow load_elf to access address space while calling as_create
-
-	//kprintf("finish calling as_create \n");
 
 	return as;
 }
@@ -86,7 +83,6 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-	//kprintf("start calling as_copy \n");
 	struct addrspace *newas;
 
 	newas = as_create();
@@ -116,8 +112,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	lock_release(old->pt_lock);
 
 	*ret = newas;
-
-	//kprintf("finish calling as_copy \n");
 	return 0;
 }
 
@@ -130,7 +124,6 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
-	//kprintf("start calling as_activate \n");
 	int i, spl;
 	struct addrspace *as;
 
@@ -146,10 +139,7 @@ as_activate(void)
 		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
 	}
 	
-	//tlb_random(0x400000,0x450200);
-
 	splx(spl);
-	//kprintf("finish calling as_activate \n");
 }
 
 void

@@ -238,9 +238,7 @@ mips_trap(struct trapframe *tf)
 	 * Call vm_fault on the TLB exceptions.
 	 * Panic on the bus error exceptions.
 	 */
-	kprintf("code:  %d \n", code);
-
-	kprintf("tf->tf_vaddr from trap.c:  %x \n", tf->tf_vaddr);
+	 
 	switch (code) {
 	case EX_MOD:
 		//kprintf("case EX_MOD \n");
@@ -274,8 +272,6 @@ mips_trap(struct trapframe *tf)
 		panic("Bus error exception, PC=0x%x\n", tf->tf_epc);
 		break;
 	}
-
-	kprintf("switch case finished \n");
 
 	/*
 	 * If we get to this point, it's a fatal fault - either it's
