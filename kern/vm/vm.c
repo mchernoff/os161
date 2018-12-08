@@ -52,6 +52,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	faultaddress &= PAGE_FRAME;
 
+
 	//kprintf("before switch vm_fault \n");
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
@@ -63,8 +64,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	    default:
 		return EINVAL;
 	}
-
-	//kprintf("after switch vm_fault \n");
 
 	if (curproc == NULL) {
 		/*
@@ -84,7 +83,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	//kprintf("after proc_getas vm_fault \n");
+	switch (faulttype) {
+	    case VM_FAULT_READONLY:
+			//return EFAULT;
+	    case VM_FAULT_READ:
+	    case VM_FAULT_WRITE:
+		break;
+	    default:
+		return EINVAL;
+	}
 
 	paddr = faultaddress;
 	/* make sure it's page-aligned */
@@ -156,6 +163,7 @@ getppages(unsigned long npages)
 	return addr;
 }
 
+
 vaddr_t alloc_kpages(unsigned npages){
 	paddr_t pa;
 	struct addrspace* as;
@@ -167,6 +175,7 @@ vaddr_t alloc_kpages(unsigned npages){
 		}
 		return PADDR_TO_KVADDR(pa);
 	}
+	
 	
 	as = proc_getas();
 	
