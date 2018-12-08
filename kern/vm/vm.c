@@ -42,6 +42,7 @@ void vm_bootstrap(void){
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
+	kprintf("start calling vm_fault \n");
 	paddr_t paddr;
 	int i;
 	uint32_t ehi, elo;
@@ -49,6 +50,19 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int spl;
 
 	faultaddress &= PAGE_FRAME;
+
+
+	//kprintf("before switch vm_fault \n");
+	switch (faulttype) {
+	    case VM_FAULT_READONLY:
+		/* We always create pages read-write, so we can't get this */
+		panic("VM_FAULT_READONLY\n");
+	    case VM_FAULT_READ:
+	    case VM_FAULT_WRITE:
+		break;
+	    default:
+		return EINVAL;
+	}
 
 	if (curproc == NULL) {
 		/*
@@ -102,29 +116,41 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	/* make sure it's page-aligned */
 	KASSERT((paddr & PAGE_FRAME) == paddr);
 	
-	
+	//kprintf("after faultaddress vm_fault \n");
 	
 	spinlock_acquire(&tlb_lock);
 
 	/* Disable interrupts on this CPU while frobbing the TLB. */
 	spl = splhigh();
 
+	//kprintf("before for loop vm_fault \n");
 	for (i=0; i<NUM_TLB; i++) {
+		kprintf("i: %d \n", i);
+		kprintf("before forloop tlb_read vm_fault \n");
 		tlb_read(&ehi, &elo, i);
+		//kprintf("after forloop tlb_read vm_fault \n");
 		if (elo & TLBLO_VALID) {
 			continue;
 		}
 		ehi = faultaddress;
 		elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+		//kprintf("before forloop tlb_write vm_fault \n");
 		tlb_write(ehi, elo, i);
+		//kprintf("after forloop tlb_write vm_fault \n");
 		splx(spl);
+		//kprintf("after forloop splx vm_fault \n");
 		spinlock_release(&tlb_lock);
+		kprintf("after forloop spinlock_release vm_fault \n");
 		return 0;
 	}
+
+	//kprintf("after for loop vm_fault \n");
 
 	panic("Ran out of TLB entries - cannot handle page fault\n");
 	spinlock_release(&tlb_lock);
 	splx(spl);
+
+	kprintf("finish calling vm_fault \n");
 	return EFAULT;
 }
 
