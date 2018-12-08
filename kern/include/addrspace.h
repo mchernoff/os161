@@ -118,7 +118,8 @@ void              as_deactivate(void);
 void              as_destroy(struct addrspace *);
 
 int               as_define_region(struct addrspace *as,
-                                   vaddr_t vaddr, size_t sz,
+                                   vaddr_t vaddr, paddr_t paddr,
+								   size_t sz,
                                    int readable,
                                    int writeable,
                                    int executable);
@@ -126,7 +127,7 @@ int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
-void pte_insert(struct addrspace *as, vaddr_t va, uint8_t flags);
+void pte_insert(struct addrspace *as, vaddr_t va, paddr_t pa, uint8_t flags);
 
 
 /*
