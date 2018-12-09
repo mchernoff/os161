@@ -60,7 +60,8 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
 
-        struct lock *pt_lock;                   //lock for page table
+        //struct lock *pt_lock;                   //lock for page table
+        struct spinlock pt_lock;                   //lock for page table
 		struct pte pagetable[PAGE_TABLE_SIZE];          //page table
 		vaddr_t heap_start;
 		vaddr_t heap_end;

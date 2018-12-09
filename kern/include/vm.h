@@ -59,6 +59,12 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+// Lock helpers
+int ptlock_acquire(void);
+void ptlock_release(void);
+int ptlock_do_i_hold(void);
+//
+
 //PTE helper functions
 #define PTE_VALID_FLAG 32
 #define PTE_MOD_FLAG 16

@@ -9,6 +9,7 @@
 #include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
+#include <machine/vm.h>
 #include <mainbus.h>
 #include <synch.h>
 #include <mips/tlb.h>
@@ -21,6 +22,7 @@
 vaddr_t firstfree;
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 static struct spinlock tlb_lock = SPINLOCK_INITIALIZER;
+struct lock *pagetable_lock = NULL;
 
 uint8_t num_shootdowns;
 bool initialized = false;
@@ -38,7 +40,27 @@ bool initialized = false;
 void vm_bootstrap(void){
 	num_shootdowns = 0;
 	initialized = true;
+	pagetable_lock = lock_create("pt-lock");
 }
+
+int ptlock_acquire(){
+	if(ptlock_do_i_hold()){
+		return 0;
+	}
+	else{
+		lock_acquire(pagetable_lock);
+		return 1;
+	}
+}
+
+void ptlock_release(){
+	lock_release(pagetable_lock);
+}
+
+int ptlock_do_i_hold(){
+	return lock_do_i_hold(pagetable_lock);
+}
+
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -143,7 +165,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 }
 
 
-static
+/*static
 paddr_t
 alloc_ppages(unsigned long npages)
 {
@@ -154,7 +176,7 @@ alloc_ppages(unsigned long npages)
 	spinlock_release(&stealmem_lock);
 	
 	return pa;
-}
+}*/
 
 static
 paddr_t
@@ -173,18 +195,18 @@ getppages(unsigned long npages)
 
 vaddr_t alloc_kpages(unsigned npages){
 	paddr_t pa;
-	struct addrspace* as;
+	//struct addrspace* as;
 	
-	if(!initialized || curproc->p_addrspace == NULL){
+	//if(!initialized || curproc->p_addrspace == NULL){
 		pa = getppages(npages);
 		if (pa==0) {
 			return 0;
 		}
 		return PADDR_TO_KVADDR(pa);
-	}
+	//}
 	
 	
-	as = proc_getas();
+	/*as = proc_getas();
 	
 	pa = alloc_ppages(npages);
 	
@@ -208,7 +230,7 @@ vaddr_t alloc_kpages(unsigned npages){
 			return as->pagetable[i].vpage;
 		}
 	}
-	return ENOMEM;
+	return ENOMEM;*/
 }
 
 void free_kpages(vaddr_t vaddr){
@@ -231,13 +253,13 @@ void free_kpages(vaddr_t vaddr){
 	}
 	spinlock_release(&stealmem_lock);
 	
-	lock_acquire(as->pt_lock);
+	//lock_acquire(as->pt_lock);
 	for(i = 0; i < as->pagetable[index].npages; i++){
 		as->pagetable[index+i].flags &= !PTE_VALID_FLAG;
 		as->pagetable[index+i].pframe = 0;
 	}
 	as->pagetable[index].npages = 0;
-	lock_release(as->pt_lock);
+	//lock_release(as->pt_lock);
 }
 
 void vm_tlbshootdown_all(void){
