@@ -92,17 +92,27 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	lock_acquire(old->pt_lock);
 
+	newas->heap_start = old->heap_start;
+	newas->heap_end = old->heap_end;
+	newas->is_loading_done = old->is_loading_done;               
+    newas->stack = old->stack;                          
+	newas->static_start = old->static_start;
+
 	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
 	{
 		//this part need to be changed after we change page table
 		
-		// struct pte *old_entry =  &(old->pagetable[i]);
+		struct pte *old_entry =  &(old->pagetable[i]);
 
-		// if(old_entry != NULL)
-		// {
-		// 	struct pte *new_entry = kmalloc(sizeof (struct pte));
-		// 	newas->pagetable[i] = new_entry;
-		// }
+		if(old_entry != NULL)
+		{
+			struct pte *new_entry = kmalloc(sizeof (struct pte));
+			new_entry->vpage = old_entry->vpage;
+			new_entry->pframe = old_entry->pframe;
+			new_entry->npages = old_entry->npages;
+			new_entry->flags = old_entry->flags;
+			newas->pagetable[i] = *(new_entry);
+		}
 		// else
 		// {
 		// 	newas->pagetable[i] = NULL;
@@ -115,12 +125,31 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	return 0;
 }
 
+/*
+	dispose of an address space. You may need to change
+    the way this works if implementing user-level threads.
+*/
 void
 as_destroy(struct addrspace *as)
 {
+	for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
+	{	
+		struct pte *pt_entry =  &(as->pagetable[i]);
+
+		if(pt_entry != NULL)
+		{
+			struct pte *new_entry = kmalloc(sizeof (struct pte));
+			new_entry->vpage = NULL;
+			new_entry->pframe = NULL;
+			new_entry->npages = NULL;
+			new_entry->flags = NULL;
+			newas->pagetable[i] = *(new_entry);
+		}
+	}
 	kfree(as);
 }
 
+// make curproc's address space the one currently "seen" by the processor.
 void
 as_activate(void)
 {
@@ -142,6 +171,10 @@ as_activate(void)
 	splx(spl);
 }
 
+/*
+	unload curproc's address space so it isn't currently "seen" by the processor. 
+	This is used to avoid potentially "seeing" it while it's being destroyed.
+*/
 void
 as_deactivate(void)
 {
@@ -155,6 +188,7 @@ void pte_insert(struct addrspace *as, vaddr_t va, paddr_t pa, uint8_t flags){
 	as->pagetable[index].pframe = pa;
 }
 
+//set up a region of memory within the address space
 int
 as_define_region(struct addrspace *as, vaddr_t vaddr, paddr_t paddr, size_t sz,
 		 int readable, int writeable, int executable)
@@ -215,6 +249,7 @@ as_zero_region(paddr_t paddr, unsigned npages)
 	bzero((void *)PADDR_TO_KVADDR(paddr), npages * PAGE_SIZE);
 }*/
 
+//this is called before actually loading from an executable into the address space
 int
 as_prepare_load(struct addrspace *as)
 {
@@ -222,6 +257,7 @@ as_prepare_load(struct addrspace *as)
 	return 0;
 }
 
+//this is called when loading from an executable is complete
 int
 as_complete_load(struct addrspace *as)
 {
@@ -230,6 +266,9 @@ as_complete_load(struct addrspace *as)
 	return 0;
 }
 
+//	set up the stack region in the address space. (Normally called 
+//	*after* as_complete_load().) Handsback the initial stack pointer 
+//	for the new process.
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
@@ -238,6 +277,4 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	*stackptr = USERSTACK;
 	return 0;
 }
-
-
 
