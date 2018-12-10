@@ -99,7 +99,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	//lock_acquire(old->pt_lock);
 	//spinlock_acquire(&old->pt_lock);
 	ptlock_acquire();
-	struct thread *thread;
+	//struct thread *thread;
 	size_t i;
 	
 	for(i = 0; i < PAGE_TABLE_SIZE; i++)

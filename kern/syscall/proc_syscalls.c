@@ -43,7 +43,10 @@
 #include <copyinout.h>
 #include <pid.h>
 #include <syscall.h>
-
+#include <addrspace.h>
+#include <vfs.h>
+#include <limits.h>
+#include <kern/fcntl.h>
 
 /*
  * sys_getpid
@@ -133,6 +136,172 @@ sys_fork(struct trapframe *tf, pid_t *retval)
 	}
 
 	return 0;
+}
+
+//Frees a string array
+static void kfree_all(char *argv[])
+{
+	int i;
+	for (i=0; argv[i]; i++)
+		kfree(argv[i]);
+}
+//Replaces the current executing program with a newly loaded program image
+int 
+sys_execv(char* path, char* args[])
+{
+	struct addrspace *as;
+	struct vnode *v;
+	int result, argc;
+	int *length;
+	size_t buflen;
+	int i = 0;
+	vaddr_t entrypoint, stackptr;
+	char *progname = (char*)kmalloc(PATH_MAX); 
+	copyinstr((userptr_t)path,progname,PATH_MAX,&buflen);
+	char **argv= (char **)kmalloc(sizeof(char*));
+	
+    if(progname == NULL){
+		kfree(argv);
+		kfree(progname);
+		return ENOMEM;
+    }
+
+    while (args[i]!=NULL){
+		i++;
+    }
+    argc = i;
+	//Too many arguments
+	if(argc > ARG_MAX){	
+		kfree(argv);
+		kfree(progname);
+		return E2BIG;
+	}
+	length = kmalloc(sizeof(int)*argc);
+
+    if(argv == NULL){
+		kfree(length);
+		kfree(argv);
+		kfree(progname);
+		return ENOMEM;
+    }
+    
+
+    for (i=0; i<argc; i++){
+        length[i] = strlen(args[i]);
+        length[i]=length[i]+1;
+    }
+    for (i=0; i<=argc; i++){
+		if(i<argc){  
+			argv[i]=(char*)kmalloc(length[i]+1);
+			if(argv[i]==NULL) {
+				
+				kfree(length);
+				kfree_all(argv);
+				kfree(argv);
+				kfree(progname);
+				return ENOMEM;
+			}
+            copyinstr((userptr_t)args[i], argv[i], length[i], &buflen);
+		}
+		else{
+			argv[i] = NULL;
+		}
+	}
+
+
+	int arglength[argc];
+	int arg_pointer[argc];
+	int offset=0;
+	
+
+	int count;
+	for(count = argc-1; count >= 0; count--) {
+		arglength[count] = strlen(argv[count])+1;
+	}
+
+	/* Open the file. */
+	result = vfs_open(progname, O_RDONLY, 0, &v);
+	if (result) {
+		
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
+		return result;
+	}
+
+	/* Create new address space */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
+		return ENOMEM;
+	}
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+    /* Load the executable. */
+	result = load_elf(v, &entrypoint);
+	if (result) {
+		/* thread_exit destroys curthread->t_vmspace */
+		vfs_close(v);
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
+		return result;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+  /* Define the user stack in the address space */
+	result = as_define_stack(as, &stackptr);
+	if (result) {
+	/* thread_exit destroys curthread->t_vmspace */
+	
+		kfree(length);
+		kfree_all(argv);
+		kfree(argv);
+		kfree(progname);
+		return result;
+	}
+
+  
+    //push arguments onto stack
+    for(i = argc-1; i >= 0; i--) {
+		offset=(arglength[i] + (4-(arglength[i]%4)));
+		stackptr = stackptr - offset;
+		copyoutstr(argv[i], (userptr_t)stackptr, (size_t)arglength[i], &buflen);
+		arg_pointer[i] = stackptr;
+	}
+
+	//allocate memory in stack;
+	arg_pointer[argc] = (int)NULL;
+	i = argc;
+	while(i>=0){
+		stackptr = stackptr - 4;
+		copyout(&arg_pointer[i] ,(userptr_t)stackptr, sizeof(arg_pointer[i]));
+		i--;
+	}
+	
+	kfree(length);
+	kfree_all(argv);
+	kfree(argv);
+	kfree(progname);
+	// Warp to user mode.
+
+	enter_new_process(argc, (userptr_t)stackptr,
+			  NULL /*userspace addr of environment*/,
+			  stackptr, entrypoint);
+	panic("enter_new_process should not return\n");
+	return EINVAL;
 }
 
 /*
