@@ -40,8 +40,6 @@
 #include <spinlock.h>
 
 struct vnode;
-
-#define PAGE_TABLE_SIZE 1024
 /*
  * Address space - data structure associated with the virtual memory
  * space of a process.
@@ -60,9 +58,9 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
 
-        //struct lock *pt_lock;                   //lock for page table
-        struct spinlock pt_lock;                   //lock for page table
-		struct pte pagetable[PAGE_TABLE_SIZE];          //page table
+        struct lock *pt_lock;                   //lock for page table
+        //struct spinlock pt_lock;                   //lock for page table
+		struct pte* pagetable;         			 //page table
 		vaddr_t heap_start;
 		vaddr_t heap_end;
 		bool is_loading_done;                   //Whether loading load_elf is done or not.
@@ -70,6 +68,30 @@ struct addrspace {
 		vaddr_t static_start;
 #endif
 };
+
+struct pte {
+	//tree node key: vaddr
+	vaddr_t vaddr;
+	paddr_t paddr;
+	unsigned npages;
+	uint8_t flags;
+	
+	//tree
+	struct pte* right;
+	struct pte* left;
+};
+
+struct fte {
+	paddr_t pframe;
+	unsigned npages;
+	uint8_t flags;
+	
+};
+
+struct pte* pagetable_insert(struct pte*, vaddr_t vaddr, paddr_t paddr, int npages, uint8_t flags);
+struct pte* pagetable_copy(struct pte*);
+struct pte* pagetable_find(struct pte*, vaddr_t vaddr);
+struct pte* pagetable_delete(struct pte*, vaddr_t vaddr);
 
 /*
  * Functions in addrspace.c:

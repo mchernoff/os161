@@ -62,20 +62,13 @@ as_create(void)
 	if (as == NULL) {
 		return NULL;
 	}
-	
-	unsigned i;
-	for(i = 0; i < PAGE_TABLE_SIZE; i++){
-		as->pagetable[i].vpage = firstfree + i*PAGE_SIZE;
-		as->pagetable[i].pframe = 0;
-		as->pagetable[i].flags = 0;
-		as->pagetable[i].npages = 0;
-	}
 
-	//as->pt_lock = lock_create("page table lock");
-	spinlock_init(&as->pt_lock);
+	as->pt_lock = lock_create("page table lock");
+	//spinlock_init(&as->pt_lock);
 	as->static_start = 0x0;					//initialize Static Segment Start to 0
 	as->is_loading_done = false;		//allow load_elf to access address space while calling as_create
 
+	as->pagetable = NULL;
 	return as;
 }
 
@@ -104,52 +97,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
     // newas->stack = old->stack;                          
 	// newas->static_start = old->static_start;
 
-	// for(size_t i = 0; i < PAGE_TABLE_SIZE; i++)
-	// {
-	// 	//this part need to be changed after we change page table
-		
-	// 	struct pte *old_entry =  &(old->pagetable[i]);
-
-	// 	if(old_entry != NULL)
-	// 	{
-	// 		struct pte *new_entry = kmalloc(sizeof (struct pte));
-	// 		new_entry->vpage = old_entry->vpage;
-	// 		new_entry->pframe = old_entry->pframe;
-	// 		new_entry->npages = old_entry->npages;
-	// 		new_entry->flags = old_entry->flags;
-	// 		newas->pagetable[i] = *(new_entry);
-	// 	}
-	// 	// else
-	// 	// {
-	// 	// 	newas->pagetable[i] = NULL;
-	// 	// }
-	// }
-	// lock_release(old->pt_lock);
-
-
-	//lock_acquire(old->pt_lock);
-	//spinlock_acquire(&old->pt_lock);
-	ptlock_acquire();
-	//struct thread *thread;
-	size_t i;
-	
-	for(i = 0; i < PAGE_TABLE_SIZE; i++)
-	{
-		newas->pagetable[i].flags = old->pagetable[i].flags;
-		newas->pagetable[i].npages = old->pagetable[i].npages;
-		newas->pagetable[i].pframe = old->pagetable[i].pframe;
-		newas->pagetable[i].vpage = firstfree + i*PAGE_SIZE;
-	}
-	ptlock_release();
-
-	//lock_release(old->pt_lock);
-	//spinlock_release(&old->pt_lock);
-	
-	newas->heap_start = old->heap_start;
-	newas->heap_end = old->heap_end;
-	newas->stack = old->stack;
-	newas->static_start = old->static_start;
-	spinlock_init(&newas->pt_lock);
+	lock_acquire(old->pt_lock);
+	newas->pagetable = pagetable_copy(old->pagetable);
+	lock_release(old->pt_lock);
 
 	*ret = newas;
 	return 0;
@@ -209,13 +159,6 @@ as_deactivate(void)
 	/* nothing */
 }
 
-void pte_insert(struct addrspace *as, vaddr_t va, paddr_t pa, uint8_t flags){
-	size_t index = VA_TO_PT_INDEX(va);
-	as->pagetable[index].flags = flags;
-	as->pagetable[index].vpage = va;
-	as->pagetable[index].pframe = pa;
-}
-
 //set up a region of memory within the address space
 int
 as_define_region(struct addrspace *as, vaddr_t vaddr, paddr_t paddr, size_t sz,
@@ -255,18 +198,21 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, paddr_t paddr, size_t sz,
 		flags |= PTE_CANEXEC_FLAG;
 	}
 	
-	vaddr_t cur_vaddr = vaddr;
+	/*vaddr_t cur_vaddr = vaddr;
 	paddr_t cur_paddr = paddr;
 	
 	size_t i;
 	//uint32_t elo, ehi;
 	for(i = 0; i < npages; i++){
-		//ehi = cur_vaddr;
-		//elo = (cur_paddr&TLBLO_PPAGE) | TLBLO_VALID;
-		pte_insert(as, cur_vaddr, cur_paddr, flags);
+		ehi = cur_vaddr;
+		elo = (cur_paddr&TLBLO_PPAGE) | TLBLO_VALID;
+		tlb_random(ehi,elo);
 		cur_vaddr += PAGE_SIZE;
 		cur_paddr += PAGE_SIZE;
-	}
+	}*/
+	UNUSED(paddr);
+	UNUSED(npages);
+	UNUSED(flags);
 	
 	return 0;
 }

@@ -34,7 +34,7 @@
 #include <mainbus.h>
 
 
-struct fte frametable[VPN_MAX];
+struct fte frametable[NUM_PADDR];
 
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
@@ -72,7 +72,7 @@ ram_bootstrap(void)
 	firstpaddr = firstfree - MIPS_KSEG0;
 	
 	unsigned i;
-	for(i = 0; i < VPN_MAX; i++){
+	for(i = 0; i < NUM_PADDR; i++){
 		frametable[i].pframe = firstpaddr + i*PAGE_SIZE;
 		frametable[i].flags = 0;
 	}
@@ -124,7 +124,7 @@ ram_stealpages(unsigned long npages)
 	
 	unsigned i,j;
 	unsigned long found = 0;
-	for(i = 0; i < VPN_MAX - npages; i++){
+	for(i = 0; i < NUM_PADDR - npages; i++){
 		for(j = 0; j < npages; j++){
 			//searches for npages-length block of physical memory
 			if(frametable[i+j].flags){
@@ -137,6 +137,7 @@ ram_stealpages(unsigned long npages)
 			for(j = 0; j < npages; j++){
 				frametable[i+j].flags = 1;
 			}
+			frametable[i].npages = npages;
 			return frametable[i].pframe;
 		}
 	}
@@ -146,11 +147,15 @@ ram_stealpages(unsigned long npages)
 void 
 ram_returnpage(paddr_t paddr)
 {
-	unsigned i;
+	unsigned i,j;
 	i = (paddr - firstpaddr) / PAGE_SIZE;
 	KASSERT(firstpaddr <= paddr);
-	KASSERT(i < VPN_MAX);
-	frametable[i].flags = 0;
+	KASSERT(i < NUM_PADDR);
+	unsigned npages = frametable[i].npages;
+	for(j = 0; j < npages; j++){
+		frametable[i+j].flags = 0;
+		frametable[i+j].npages = 0;
+	}
 }
 
 /*

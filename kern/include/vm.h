@@ -37,13 +37,14 @@
  */
 
 #include <machine/vm.h>
+#include <addrspace.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
-#define VPN_MAX 452
+
 
 /* Initialization function */
 void vm_bootstrap(void);
@@ -59,11 +60,6 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown_all(void);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
-// Lock helpers
-int ptlock_acquire(void);
-void ptlock_release(void);
-int ptlock_do_i_hold(void);
-//
 
 //PTE helper functions
 #define PTE_VALID_FLAG 32
@@ -80,16 +76,5 @@ int ptlock_do_i_hold(void);
 #define PTE_CANWRITE(pte) (pte.flags&PTE_CANWRITE_FLAG)
 #define PTE_CANEXEC(pte) (pte.flags&PTE_CANEXEC_FLAG)
 
-struct pte {
-	vaddr_t vpage;
-	paddr_t pframe;
-	unsigned npages;
-	uint8_t flags;
-};
-
-struct fte {
-	paddr_t pframe;
-	uint8_t flags;
-};
 
 #endif /* _VM_H_ */

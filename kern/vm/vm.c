@@ -40,25 +40,111 @@ bool initialized = false;
 void vm_bootstrap(void){
 	num_shootdowns = 0;
 	initialized = true;
-	pagetable_lock = lock_create("pt-lock");
 }
 
-int ptlock_acquire(){
-	if(ptlock_do_i_hold()){
-		return 0;
+//Inserts new entry into page table tree
+struct pte*
+pagetable_insert(struct pte* table, vaddr_t vaddr, paddr_t paddr, int npages, uint8_t flags){
+	if(table == NULL){
+		table = kmalloc(sizeof(struct pte));
+		table->vaddr = vaddr;
+		table->paddr = paddr;
+		table->npages = npages;
+		table->flags = flags;
+		table->right = NULL;
+		table->left = NULL;
+	}
+	else if(vaddr > table->vaddr){
+		table->right = pagetable_insert(table->right, vaddr, paddr, npages, flags);
+	}
+	else if(vaddr < table->vaddr){
+		table->left = pagetable_insert(table->left, vaddr, paddr, npages, flags);
+	}
+	return table;
+}
+
+//Searches recursively for page table entry
+struct pte*
+pagetable_find(struct pte* table, vaddr_t vaddr){
+	if(table == NULL){
+		return NULL;
+	}
+	if(table->vaddr == vaddr){
+		return table;
+	}
+	else if(table->vaddr >= vaddr){
+		return pagetable_find(table->right,vaddr);
 	}
 	else{
-		lock_acquire(pagetable_lock);
-		return 1;
+		return pagetable_find(table->left,vaddr);
 	}
+	return NULL;
 }
 
-void ptlock_release(){
-	lock_release(pagetable_lock);
+//Copies tree structure of page table
+struct pte*
+pagetable_copy(struct pte* oldtable){
+	if(oldtable == NULL){
+		return NULL;
+	}
+	struct pte* newtable = kmalloc(sizeof(struct pte));
+	newtable->vaddr = oldtable->vaddr;
+	newtable->paddr = oldtable->paddr;
+	newtable->npages = oldtable->npages;
+	newtable->flags = oldtable->flags;
+	newtable->right = pagetable_copy(oldtable->right);
+	newtable->left = pagetable_copy(oldtable->left);
+	return newtable;
 }
 
-int ptlock_do_i_hold(){
-	return lock_do_i_hold(pagetable_lock);
+//Finds entry to replace node being deleted
+static struct pte*
+replacementEntry(struct pte* table){
+	if(table->right == NULL){
+		return table->left;
+	}
+	struct pte* current = table->right;
+	while(current->left != NULL){
+		current = current->left;
+	}
+	return current;
+}
+
+//Removes page table entry from tree
+struct pte* 
+pagetable_delete(struct pte* table, vaddr_t vaddr){
+	if(table == NULL){
+		return table;
+	}
+	if(table->vaddr > vaddr){
+		table->right = pagetable_delete(table->right,vaddr);
+	}
+	else if(table->vaddr > vaddr){
+		table->left = pagetable_delete(table->left,vaddr);
+	}
+	else{
+		struct pte *tmp;
+		if (table->left == NULL) 
+        { 
+            tmp = table->right; 
+            kfree(table); 
+            return tmp; 
+        } 
+        else if (table->right == NULL) 
+        { 
+            tmp = table->left; 
+            kfree(table); 
+            return tmp; 
+        } 
+		tmp = replacementEntry(table);
+		table->vaddr = tmp->vaddr;
+		table->paddr = tmp->paddr;
+		table->npages = tmp->npages;
+		table->flags = tmp->flags;
+		
+		table->right = pagetable_delete(table->right, tmp->vaddr);
+	}
+	return table;
 }
 
 int
@@ -92,7 +178,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-			//return EFAULT;
+			return EFAULT;
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
 		break;
@@ -122,15 +208,23 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	//paddr = faultaddress;
 	
-	//look up physical address in page table
-	size_t index = VA_TO_PT_INDEX(faultaddress);
-	if(!PTE_VALID(as->pagetable[index])){
-		paddr = ram_stealpages(1);
-		as->pagetable[index].flags = PTE_CANREAD_FLAG | PTE_CANWRITE_FLAG | PTE_VALID_FLAG;
-		as->pagetable[index].pframe = paddr;
+	if(faultaddress >= MIPS_KSEG1){
+		panic("shouldn't be in this address space");
+	}
+	else if(faultaddress >= MIPS_KSEG0){
+		paddr = KVADDR_TO_PADDR(faultaddress);
 	}
 	else{
-		paddr = as->pagetable[index].pframe;
+		struct pte* entry = pagetable_find(as->pagetable, faultaddress);
+		if(entry == NULL){
+			uint8_t flags = PTE_CANREAD_FLAG | PTE_CANWRITE_FLAG | PTE_VALID_FLAG;
+			paddr = ram_stealpages(1);
+			UNUSED(flags);
+			as->pagetable = pagetable_insert(as->pagetable, faultaddress, paddr, 1, flags);
+		}
+		else{
+			paddr = entry->paddr;
+		}
 	}
 	
 	/* make sure it's page-aligned */
@@ -161,11 +255,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	tlb_random(ehi, elo);
 	spinlock_release(&tlb_lock);
 	splx(spl);
-	return EFAULT;
+	return 0;
 }
 
 
-/*static
+static
 paddr_t
 alloc_ppages(unsigned long npages)
 {
@@ -176,7 +270,7 @@ alloc_ppages(unsigned long npages)
 	spinlock_release(&stealmem_lock);
 	
 	return pa;
-}*/
+}
 
 static
 paddr_t
@@ -195,22 +289,23 @@ getppages(unsigned long npages)
 
 vaddr_t alloc_kpages(unsigned npages){
 	paddr_t pa;
-	//struct addrspace* as;
 	
-	//if(!initialized || curproc->p_addrspace == NULL){
+	if(!initialized || curproc->p_addrspace == NULL){
 		pa = getppages(npages);
 		if (pa==0) {
 			return 0;
 		}
 		return PADDR_TO_KVADDR(pa);
-	//}
+	}
 	
 	
-	/*as = proc_getas();
 	
 	pa = alloc_ppages(npages);
+	return PADDR_TO_KVADDR(pa);
 	
-	unsigned i,j;
+	/*unsigned i,j;
+	struct addrspace* as;
+	as = proc_getas();
 	unsigned found = 0;
 	for(i = 0; i < PAGE_TABLE_SIZE - npages; i++){
 		for(j = 0; j < npages; j++){
@@ -224,42 +319,26 @@ vaddr_t alloc_kpages(unsigned npages){
 			//large enough block found -> fills page table
 			for(j = 0; j < npages; j++){
 				as->pagetable[i+j].flags |= PTE_VALID_FLAG;
-				as->pagetable[i+j].pframe |= pa + j*PAGE_SIZE;
+				as->pagetable[i+j].paddr |= pa + j*PAGE_SIZE;
 			}
 			as->pagetable[i].npages = npages;
-			return as->pagetable[i].vpage;
+			return as->pagetable[i].vaddr;
 		}
-	}
-	return ENOMEM;*/
+	}*/
+	return ENOMEM;
 }
 
 void free_kpages(vaddr_t vaddr){
 	
-	unsigned i;
-	unsigned index = VA_TO_PT_INDEX(vaddr);
-	KASSERT(index < PAGE_TABLE_SIZE);
-	
-	if(!initialized || curproc->p_addrspace == NULL){
+	if(vaddr >= MIPS_KSEG0){
+		spinlock_acquire(&stealmem_lock);
 		paddr_t paddr = KVADDR_TO_PADDR(vaddr);
 		ram_returnpage(paddr);
-		return;
+		spinlock_release(&stealmem_lock);
 	}
-	
-	struct addrspace* as = proc_getas();
-	
-	spinlock_acquire(&stealmem_lock);
-	for(i = 0; i < as->pagetable[index].npages; i++){
-		ram_returnpage(vaddr + i*PAGE_SIZE);
+	else{
+		panic("failed returning mem");
 	}
-	spinlock_release(&stealmem_lock);
-	
-	//lock_acquire(as->pt_lock);
-	for(i = 0; i < as->pagetable[index].npages; i++){
-		as->pagetable[index+i].flags &= !PTE_VALID_FLAG;
-		as->pagetable[index+i].pframe = 0;
-	}
-	as->pagetable[index].npages = 0;
-	//lock_release(as->pt_lock);
 }
 
 void vm_tlbshootdown_all(void){
