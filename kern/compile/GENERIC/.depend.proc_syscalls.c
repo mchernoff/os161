@@ -9,4 +9,7 @@ proc_syscalls.o: ../../syscall/proc_syscalls.c ../../include/types.h \
  ../../include/setjmp.h includelinks/kern/machine/setjmp.h \
  ../../include/proc.h ../../include/current.h \
  includelinks/machine/current.h ../../include/copyinout.h \
- ../../include/pid.h ../../include/syscall.h
+ ../../include/pid.h ../../include/syscall.h ../../include/addrspace.h \
+ ../../include/vm.h includelinks/machine/vm.h opt-dumbvm.h \
+ ../../include/vfs.h ../../include/limits.h ../../include/kern/limits.h \
+ ../../include/kern/fcntl.h
