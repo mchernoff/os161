@@ -1,4 +1,4 @@
-proc_syscalls.o: ../../syscall/proc_syscalls.c ../../include/types.h \
+sbrk.o: ../../syscall/sbrk.c ../../include/types.h \
  ../../include/kern/types.h includelinks/kern/machine/types.h \
  includelinks/machine/types.h ../../include/kern/errno.h \
  ../../include/kern/wait.h ../../include/lib.h ../../include/cdefs.h \

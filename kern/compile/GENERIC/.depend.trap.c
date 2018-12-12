@@ -11,4 +11,5 @@ trap.o: ../../arch/mips/locore/trap.c ../../include/types.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/proc.h \
  ../../include/current.h includelinks/machine/current.h \
- ../../include/vm.h ../../include/mainbus.h ../../include/syscall.h
+ ../../include/vm.h ../../include/addrspace.h opt-dumbvm.h \
+ ../../include/mainbus.h ../../include/syscall.h

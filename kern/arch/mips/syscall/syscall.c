@@ -220,6 +220,10 @@ syscall(struct trapframe *tf)
 			&retval);
 		break;
 
+		case SYS_sbrk:
+		err = sys_sbrk((intptr_t)tf->tf_a0, (void*)&retval);
+		break;
+
 
 	    /* Even more system calls will go here */
 
