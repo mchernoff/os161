@@ -72,7 +72,7 @@ pagetable_find(struct pte* table, vaddr_t vaddr){
 	if(table->vaddr == vaddr){
 		return table;
 	}
-	else if(table->vaddr >= vaddr){
+	else if(vaddr > table->vaddr){
 		return pagetable_find(table->right,vaddr);
 	}
 	else{
@@ -259,7 +259,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 }
 
 
-static
 paddr_t
 alloc_ppages(unsigned long npages)
 {
@@ -289,19 +288,21 @@ getppages(unsigned long npages)
 
 vaddr_t alloc_kpages(unsigned npages){
 	paddr_t pa;
+	vaddr_t va;
 	
 	if(!initialized || curproc->p_addrspace == NULL){
 		pa = getppages(npages);
 		if (pa==0) {
 			return 0;
 		}
-		return PADDR_TO_KVADDR(pa);
+		va = PADDR_TO_KVADDR(pa);
+	}
+	else{
+		pa = alloc_ppages(npages);
+		va = PADDR_TO_KVADDR(pa);
 	}
 	
-	
-	
-	pa = alloc_ppages(npages);
-	return PADDR_TO_KVADDR(pa);
+	return va;
 	
 	/*unsigned i,j;
 	struct addrspace* as;

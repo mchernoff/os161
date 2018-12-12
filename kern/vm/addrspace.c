@@ -209,6 +209,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, paddr_t paddr, size_t sz,
 		tlb_random(ehi,elo);
 		cur_vaddr += PAGE_SIZE;
 		cur_paddr += PAGE_SIZE;
+		pagetable_insert(as->pagetable, cur_vaddr, cur_paddr, 1, flags);
 	}*/
 	UNUSED(paddr);
 	UNUSED(npages);
@@ -247,9 +248,11 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	as->stack = (vaddr_t) USERSTACK - PAGE_SIZE;
+	as->stack = (vaddr_t) USERSTACK - 5*PAGE_SIZE;
+	
 
-	*stackptr = USERSTACK;
+	*stackptr = USERSTACK - 5*PAGE_SIZE;
+	
 	return 0;
 }
 
