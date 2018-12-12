@@ -248,10 +248,10 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	as->stack = (vaddr_t) USERSTACK - 5*PAGE_SIZE;
+	as->stack = (vaddr_t) USERSTACK;
 	
 
-	*stackptr = USERSTACK - 5*PAGE_SIZE;
+	*stackptr = USERSTACK;
 	
 	return 0;
 }

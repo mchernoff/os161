@@ -18,6 +18,8 @@
 #define UNUSED(x) (void)(x)
 
 #define VPN_MAX 452
+#define VM_STACKPAGES	256
+#define USER_STACK_LIMIT (0x80000000 - (VM_STACKPAGES * PAGE_SIZE)) 
 
 vaddr_t firstfree;
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
@@ -156,6 +158,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	struct addrspace *as;
 	int spl;
 
+	vaddr_t fulladdress = faultaddress;
 	faultaddress &= PAGE_FRAME;
 
 	if (curproc == NULL) {
@@ -215,11 +218,30 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		paddr = KVADDR_TO_PADDR(faultaddress);
 	}
 	else{
+		
 		struct pte* entry = pagetable_find(as->pagetable, faultaddress);
 		if(entry == NULL){
+			//Process not set up yet
+			if(as->stack == 0xdeadbeef){
+				paddr = ram_stealpages(1);
+			}
+			else if(faultaddress < as->stack && faultaddress > USER_STACK_LIMIT)
+			{
+				as->stack -= PAGE_SIZE;
+				paddr = ram_stealpages(1);
+			}
+			else if(fulladdress < as->heap_end && fulladdress >= as->heap_start)
+			{
+				paddr = ram_stealpages(1);
+			}
+			else if(faultaddress < as->heap_start && faultaddress >= as->static_start)
+			{
+				paddr = ram_stealpages(1);
+			}
+			else{
+				return EFAULT;
+			}
 			uint8_t flags = PTE_CANREAD_FLAG | PTE_CANWRITE_FLAG | PTE_VALID_FLAG;
-			paddr = ram_stealpages(1);
-			UNUSED(flags);
 			as->pagetable = pagetable_insert(as->pagetable, faultaddress, paddr, 1, flags);
 		}
 		else{

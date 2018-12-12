@@ -104,7 +104,7 @@ struct thread {
 	/*
 	 * Public fields
 	 */
-
+	struct addrspace *vm_addrspace;
 	/* add more here as needed */
 };
 
