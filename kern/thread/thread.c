@@ -157,6 +157,7 @@ thread_create(const char *name)
 	thread->t_iplhigh_count = 1; /* corresponding to t_curspl */
 
 	/* If you add to struct thread, be sure to initialize here */
+	thread->vm_addrspace = NULL;
 
 	return thread;
 }
@@ -254,6 +255,8 @@ thread_destroy(struct thread *thread)
 	 * If you add things to struct thread, be sure to clean them up
 	 * either here or in thread_exit(). (And not both...)
 	 */
+
+	KASSERT(thread->vm_addrspace == NULL);
 
 	/* Thread subsystem fields */
 	KASSERT(thread->t_proc == NULL);
@@ -719,7 +722,9 @@ thread_switch(threadstate_t newstate, struct wchan *wc, struct spinlock *lk)
 	spinlock_release(&curcpu->c_runqueue_lock);
 
 	/* Activate our address space in the MMU. */
-	as_activate();
+	if (cur->vm_addrspace != NULL) {
+		as_activate();
+	}
 
 	/* Clean up dead threads. */
 	exorcise();
@@ -752,7 +757,9 @@ thread_startup(void (*entrypoint)(void *data1, unsigned long data2),
 	spinlock_release(&curcpu->c_runqueue_lock);
 
 	/* Activate our address space in the MMU. */
-	as_activate();
+	if (cur->vm_addrspace != NULL) {
+		as_activate();
+	}
 
 	/* Clean up dead threads. */
 	exorcise();
@@ -791,6 +798,13 @@ thread_exit(void)
 
 	/* Make sure we *are* detached. */
 	KASSERT(cur->t_proc == NULL);
+
+	if (cur->vm_addrspace != NULL) {
+		struct addrspace *as = cur->vm_addrspace;
+		cur->vm_addrspace = NULL;
+		as_activate();
+		as_destroy(as);
+	}
 
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
