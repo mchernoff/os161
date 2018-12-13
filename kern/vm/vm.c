@@ -261,6 +261,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	for (i=0; i<NUM_TLB; i++) {
 		tlb_read(&ehi, &elo, i);
+		if((ehi & TLBHI_VPAGE) == faultaddress){
+			spinlock_release(&tlb_lock);
+			splx(spl);
+			return 0;
+		}
 		if (elo & TLBLO_VALID) {
 			continue;
 		}
@@ -352,6 +357,29 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 void free_kpages(vaddr_t vaddr){
+	struct addrspace *as;
+	
+	as = proc_getas();
+	
+	if(as != NULL){
+		as->pagetable = pagetable_delete(as->pagetable, vaddr);
+	}
+	
+
+	uint32_t ehi, elo;
+	int i, spl;
+	spinlock_acquire(&tlb_lock);
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	spl = splhigh();
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_read(&ehi, &elo, i);
+		if ((ehi & TLBHI_VPAGE) == vaddr) {
+			tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+			break;
+		}
+	}
+	spinlock_release(&tlb_lock);
+	splx(spl);
 	
 	if(vaddr >= MIPS_KSEG0){
 		spinlock_acquire(&stealmem_lock);
