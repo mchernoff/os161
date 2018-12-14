@@ -285,7 +285,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	return 0;
 }
 
-
+//new physical page allocation method
 paddr_t
 alloc_ppages(unsigned long npages)
 {
@@ -298,6 +298,7 @@ alloc_ppages(unsigned long npages)
 	return pa;
 }
 
+//old dumbvm physical page allocation method
 static
 paddr_t
 getppages(unsigned long npages)
@@ -331,28 +332,6 @@ vaddr_t alloc_kpages(unsigned npages){
 	
 	return va;
 	
-	/*unsigned i,j;
-	struct addrspace* as;
-	as = proc_getas();
-	unsigned found = 0;
-	for(i = 0; i < PAGE_TABLE_SIZE - npages; i++){
-		for(j = 0; j < npages; j++){
-			//searches for npages-length block of virtual memory
-			if(PTE_VALID(as->pagetable[i+j])){
-				break;
-			}
-			found++;
-		}
-		if(j == npages){
-			//large enough block found -> fills page table
-			for(j = 0; j < npages; j++){
-				as->pagetable[i+j].flags |= PTE_VALID_FLAG;
-				as->pagetable[i+j].paddr |= pa + j*PAGE_SIZE;
-			}
-			as->pagetable[i].npages = npages;
-			return as->pagetable[i].vaddr;
-		}
-	}*/
 	return ENOMEM;
 }
 
